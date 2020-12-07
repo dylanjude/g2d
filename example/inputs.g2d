@@ -1,0 +1,4 @@
+machs : 0.1 0.2 0.3 # machs
+aoas  : 2 4 6
+reys  : 1000000
+airfoil : naca0012.xyz
