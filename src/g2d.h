@@ -15,6 +15,7 @@
 #define KMAX_FACE 3
 
 #include "gpu.h"
+#include "helper_math.h"
 
 class G2D {
 

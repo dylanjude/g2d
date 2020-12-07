@@ -91,9 +91,9 @@ void G2D::init(){
   blk.y = (ktot-1)/thr.y+1;
   blk.z = nl;
 
-  // init_flow<<<blk,thr>>>(jtot,ktot,nvar,nM,nAoa,nRey,q[GPU],machs[GPU],aoas[GPU]);
+  init_flow<<<blk,thr>>>(jtot,ktot,nvar,nM,nAoa,nRey,q[GPU],machs[GPU],aoas[GPU]);
 
-  // this->metrics();
+  this->metrics();
 
   // this->apply_bc();
 

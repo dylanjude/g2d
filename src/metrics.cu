@@ -1,62 +1,93 @@
 #include "g2d.h"
 #include "gpu.h"
 
-__global__ void compute_metrics(int jtot,int ktot,int nvar,double2* Sj,double2* Sk){
-
-  int j  = blockDim.x*blockIdx.x + threadIdx.x;
-  int k  = blockDim.y*blockIdx.y + threadIdx.y;
-
-  int jp, kp;
-  int jj, kk;
-
-  jj = min(j, jtot-2);
-  kk = min(k, ktot-2); // safe second-to-last index
-
-  jp = min(j+1, jtot-1);
-  kp = min(k+1, ktot-1); // safe last index
-
-  if(j > jtot-1 or k > ktot-1) return;
-
-  int idx = j + k*jtot;
-
-  int idx1, idx2;
-
-  idx1 = j + kk*jtot;
-  idx2 = j + kp*jtot;
-
-  // double aoa  = aoas[ia];
-  // double M    = machs[im];
-  // double rinf = 1.0;
-  // double pinf = 1.0/GAMMA;
-  // double uinf = M*cos(aoa*2*PI/180);
-  // double vinf = M*sin(aoa*2*PI/180);
-
-  // if(j<jtot and k<ktot){
-  //   q += j*nvar + k*jtot*nvar + blockIdx.z*jtot*ktot*nvar;
-  //   q[0] = rinf;
-  //   q[1] = uinf*rinf;
-  //   q[2] = vinf*rinf;
-  //   q[3] = pinf/(GAMMA-1) + 0.5*rinf*(uinf*uinf+vinf*vinf);
-  //   q[4] = 3.0;
-  // }
-
-}
-
 void G2D::metrics(){
 
-  double2 d;
+  int j,k,idx;
+  int jp, kp;
 
-  d.x = 4.0;
+  double2 vec;
+  
+  double2 x1, x2, x3, x4;
 
-  // int nl     = nM*nRey*nAoa;
-  // int qcount = nl*jtot*ktot*nvar;
+  // We'll just do the metrics on the CPU and copy them to the GPU once.
+  if(Sj)  HANDLE_ERROR( cudaFree(Sj) );
+  if(Sk)  HANDLE_ERROR( cudaFree(Sk) );
+  if(vol) HANDLE_ERROR( cudaFree(vol) );
 
-  // dim3 thr(32,16,1);
-  // dim3 blk;
-  // blk.x = (jtot-1)/thr.x+1;
-  // blk.y = (ktot-1)/thr.y+1;
-  // blk.z = nl;
+  Sj = new double2[jtot*ktot];
+  Sk = new double2[jtot*ktot];
+  vol = new double[jtot*ktot];
 
-  // init_flow<<<blk,thr>>>(jtot,ktot,nvar,nM,nAoa,nRey,q[GPU],machs[GPU],aoas[GPU]);
+  for(k=0;k<ktot-1;k++){
+    kp=k+1;
+    for(j=0;j<jtot-1;j++){
+      jp=j+1;
+
+      x1 = x[CPU][j+k*jtot];
+      x2 = x[CPU][jp+k*jtot];
+      x3 = x[CPU][jp+kp*jtot];
+      x4 = x[CPU][j+kp*jtot];
+
+      // J-direction-face (k-varying)
+      vec = x4-x1;
+      Sj[j+k*jtot].x = -vec.y;
+      Sj[j+k*jtot].y =  vec.x;
+      // K-direction-face (j-varying)
+      vec = x2-x1;
+      Sk[j+k*jtot].x = -vec.y;
+      Sk[j+k*jtot].y =  vec.x;
+      
+      vol[j+k*jtot] = 0.5*((x1.x-x3.x)*(x2.y-x4.y)+(x4.x-x2.x)*(x1.y-x3.y));
+
+    }
+  }
+
+  k=ktot-1;
+  for(j=0;j<jtot-1;j++){
+    jp=j+1;
+    x1 = x[CPU][j+k*jtot];
+    x2 = x[CPU][jp+k*jtot];
+    // K-direction-face (j-varying)
+    vec = x2-x1;
+    Sk[j+k*jtot].x = -vec.y;
+    Sk[j+k*jtot].y =  vec.x;
+    vol[j+k*jtot]  = vol[j+(k-1)*jtot];
+  }
+  j=jtot-1;
+  for(k=0;k<ktot-1;k++){
+    kp = k+1;
+    x1 = x[CPU][j+k*jtot];
+    x4 = x[CPU][j+kp*jtot];
+    // J-direction-face (k-varying)
+    vec = x4-x1;
+    Sj[j+k*jtot].x = -vec.y;
+    Sj[j+k*jtot].y =  vec.x;
+  }
+
+  j=jtot-1;
+  k=ktot-1;
+  vol[j+k*jtot]  = vol[(j-1)+(k-1)*jtot];
+
+  double2 *tmp2;
+  double  *tmp;
+
+  // Copy Sj to GPU
+  tmp2 = Sj;
+  HANDLE_ERROR( cudaMalloc((void**)&Sj, jtot*ktot*sizeof(double2)) );
+  HANDLE_ERROR( cudaMemcpy(Sj, tmp2, jtot*ktot*sizeof(double2), cudaMemcpyHostToDevice) );
+  delete[] tmp2;
+
+  // Copy Sk to GPU
+  tmp2 = Sk;
+  HANDLE_ERROR( cudaMalloc((void**)&Sk, jtot*ktot*sizeof(double2)) );
+  HANDLE_ERROR( cudaMemcpy(Sk, tmp2, jtot*ktot*sizeof(double2), cudaMemcpyHostToDevice) );
+  delete[] tmp2;
+  
+  // Copy vol to GPU
+  tmp = vol;
+  HANDLE_ERROR( cudaMalloc((void**)&vol, jtot*ktot*sizeof(double)) );
+  HANDLE_ERROR( cudaMemcpy(vol, tmp, jtot*ktot*sizeof(double), cudaMemcpyHostToDevice) );
+  delete[] tmp;
 
 }
