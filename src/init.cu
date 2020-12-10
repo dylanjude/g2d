@@ -8,7 +8,7 @@ __global__ void init_flow(int jtot,int ktot,int nvar,int nM,int nAoa,int nRey,
   int k  = blockDim.y*blockIdx.y + threadIdx.y;
   int im = blockIdx.z % nM;
   int ia = (blockIdx.z/nM) % nAoa;
-  int ir = (blockIdx.z/(nM*nAoa)) % nRey;
+  // int ir = (blockIdx.z/(nM*nAoa)) % nRey;
 
   double aoa  = aoas[ia];
   double M    = machs[im];
@@ -42,7 +42,7 @@ void G2D::init(){
   HANDLE_ERROR( cudaMalloc((void**)&this->qp,     qcount*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->s,      qcount*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->flx,    qcount*sizeof(double)) );
-  HANDLE_ERROR( cudaMalloc((void**)&this->wrk,  3*qcount*sizeof(double)) );
+  HANDLE_ERROR( cudaMalloc((void**)&this->wrk,  4*qcount*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->dt, jtot*ktot*nl*sizeof(double)) );
 
   for(k=nghost; k<ktot-nghost+1; k++){

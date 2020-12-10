@@ -104,6 +104,6 @@ void G2D::check_convergence(double* s){
     HANDLE_ERROR(cudaMemcpy(&normsq,scratch1,sizeof(double),cudaMemcpyDeviceToHost));
   }
 
-  printf("[All Norm] %16.8e\n", normsq);
+  printf("[All Norm] %16.8e\n", sqrt(normsq/idof));
 
 }

@@ -38,7 +38,7 @@ class G2D {
 
   double *xi, *eta;
 
-  void apply_bc();
+  void apply_bc(int istep);
   void metrics();
   void inviscid_flux(double* q, double* s);
   void viscous_flux(double* q, double* s);

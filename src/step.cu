@@ -69,7 +69,7 @@ __global__ void update_q(int jtot,int ktot,int nvar,int nghost, double* q, doubl
 
 void G2D::go(){
 
-  int nstep=1000;
+  int nstep=100;
   int istep;
 
   int nl     = nM*nRey*nAoa;
@@ -81,7 +81,7 @@ void G2D::go(){
   blk.y = (ktot-1)/thr.y+1;
   blk.z = nl;
 
-  double cfl = 0.1;
+  double cfl = 10.0;
 
   for(istep=0; istep<nstep; istep++){
 
@@ -89,7 +89,7 @@ void G2D::go(){
 
     set_dt<<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],dt,vol,Sj,Sk,cfl);
 
-    this->apply_bc();
+    this->apply_bc(istep);
     
     this->compute_rhs(q[GPU],s);
 

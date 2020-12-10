@@ -35,7 +35,7 @@ __global__ void bc_periodic(int jtot,int ktot,int nvar,int nghost,double* q){
 }
 
 template<int face>
-__global__ void bc_visc_wall(int jtot,int ktot,int nvar,int nghost,double* q){
+__global__ void bc_visc_wall(int jtot,int ktot,int nvar,int nghost,double* q,double ratio){
 
   int j,k;
 
@@ -50,18 +50,30 @@ __global__ void bc_visc_wall(int jtot,int ktot,int nvar,int nghost,double* q){
   int idx  = (j + k*jtot)*nvar + blockIdx.z*jtot*ktot*nvar;
   int midx = (j + (2*(nghost)-k-1)*jtot)*nvar + blockIdx.z*jtot*ktot*nvar;
 
+
+
   if(j<jtot and k<ktot){
-    q[idx+0] =  q[midx+0];  // rho
-    q[idx+1] = -q[midx+1];  // rho*(-u)
-    q[idx+2] = -q[midx+2];  // rho*(-v)
-    q[idx+3] =  q[midx+3];  // e
-    q[idx+4] = -q[midx+4];  // -nu_tilde
+    if(ratio > 0.99){
+      q[idx+0] =  q[midx+0];  // rho
+      q[idx+1] = -q[midx+1];  // rho*(-u)
+      q[idx+2] = -q[midx+2];  // rho*(-v)
+      q[idx+3] =  q[midx+3];  // e
+    } else { // ramp
+      q[idx+0] = (1-ratio)*q[idx+0] + (ratio)*q[midx+0];  // rho
+      q[idx+1] = (1-ratio)*q[idx+1] - (ratio)*q[midx+1];  // rho*(-u)
+      q[idx+2] = (1-ratio)*q[idx+2] - (ratio)*q[midx+2];  // rho*(-v)
+      q[idx+3] = (1-ratio)*q[idx+3] + (ratio)*q[midx+3];  // e
+    }
+    // dont ramp turbulence
+    if(nvar==5){ 
+      q[idx+4] = -q[midx+4]; // -nu_tilde
+    }
   }
 
 }
 
 template<int face>
-__global__ void bc_inv_wall(int jtot,int ktot,int nvar,int nghost,double* q,double2* Sk){
+__global__ void bc_inv_wall(int jtot,int ktot,int nvar,int nghost,double* q,double2* Sk, double ratio){
 
   int j,k;
 
@@ -89,18 +101,27 @@ __global__ void bc_inv_wall(int jtot,int ktot,int nvar,int nghost,double* q,doub
 
   double v_dot_wall = wall_vector.x*rhou + wall_vector.y*rhov;
 
-  q[idx+0] =  q[midx+0];                          // rho
-  q[idx+1] =  rhou-2.0*wall_vector.x*v_dot_wall;  // rho-u
-  q[idx+2] =  rhov-2.0*wall_vector.y*v_dot_wall;  // rho-v
-  q[idx+3] =  q[midx+3];                          // e
-
-  if(nvar==5) q[idx+4] = -q[midx+4];              // -nu_tilde
+  if(ratio > 0.99){
+    q[idx+0] = q[midx+0];                          // rho
+    q[idx+1] = rhou-2.0*wall_vector.x*v_dot_wall;  // rho-u
+    q[idx+2] = rhov-2.0*wall_vector.y*v_dot_wall;  // rho-v
+    q[idx+3] = q[midx+3];                          // e
+  } else {
+    q[idx+0] =  (1-ratio)*q[idx+0] + (ratio)*q[midx+0];                          // rho
+    q[idx+1] =  (1-ratio)*q[idx+1] + (ratio)*rhou-2.0*wall_vector.x*v_dot_wall;  // rho-u
+    q[idx+2] =  (1-ratio)*q[idx+2] + (ratio)*rhov-2.0*wall_vector.y*v_dot_wall;  // rho-v
+    q[idx+3] =  (1-ratio)*q[idx+3] + (ratio)*q[midx+3];                          // e
+  }
+  // dont ramp turbulence
+  if(nvar==5){ 
+    q[idx+4] = -q[midx+4]; // -nu_tilde
+  }
 
 }
 
 
 
-void G2D::apply_bc(){
+void G2D::apply_bc(int istep){
 
   int nl     = nM*nRey*nAoa;
 
@@ -115,8 +136,14 @@ void G2D::apply_bc(){
 
   thr.z = 1;
 
-  // bc_visc_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU]);
-  bc_inv_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],Sk);
+  double ratio = 1.0;
+  if(istep < 30){
+    ratio = ( istep*1.0 )/( 30.0 );                                                                                            
+    ratio = (10.0 - 15.0*ratio + 6.0*ratio*ratio)*ratio*ratio*ratio; 
+  }
+
+  // bc_visc_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],ratio);
+  bc_inv_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],Sk,ratio);
 
   // bc_far<KMAX_FACE><<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU]);
 
