@@ -31,6 +31,8 @@ class G2D {
   double2* x[2];
   double* q[2];
 
+  double *qp, *dt, *flx, *wrk, *s;
+
   double2 *Sj, *Sk;
   double* vol;
 
@@ -38,6 +40,13 @@ class G2D {
 
   void apply_bc();
   void metrics();
+  void inviscid_flux(double* q, double* s);
+  void viscous_flux(double* q, double* s);
+  void compute_rhs(double* q, double* s);
+  void precondition(double* sin, double* sout);
+  void check_convergence(double* s);
+
+  void debug_print(int j, int k, int l, double* v, int nvar);
 
  public:
   G2D(int nM,int nR,int nAoA,int jtot,int ktot, int order, double* machs,double* reys,double* aoas,double* xy);

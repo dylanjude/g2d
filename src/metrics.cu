@@ -3,7 +3,7 @@
 
 void G2D::metrics(){
 
-  int j,k,idx;
+  int j,k;
   int jp, kp;
 
   double2 vec;
@@ -30,7 +30,7 @@ void G2D::metrics(){
       x4 = x[CPU][j+kp*jtot];
 
       // J-direction-face (k-varying)
-      vec = x4-x1;
+      vec = x1-x4;
       Sj[j+k*jtot].x = -vec.y;
       Sj[j+k*jtot].y =  vec.x;
       // K-direction-face (j-varying)
@@ -60,7 +60,7 @@ void G2D::metrics(){
     x1 = x[CPU][j+k*jtot];
     x4 = x[CPU][j+kp*jtot];
     // J-direction-face (k-varying)
-    vec = x4-x1;
+    vec = x1-x4;
     Sj[j+k*jtot].x = -vec.y;
     Sj[j+k*jtot].y =  vec.x;
   }

@@ -14,8 +14,8 @@ __global__ void init_flow(int jtot,int ktot,int nvar,int nM,int nAoa,int nRey,
   double M    = machs[im];
   double rinf = 1.0;
   double pinf = 1.0/GAMMA;
-  double uinf = M*cos(aoa*2*PI/180);
-  double vinf = M*sin(aoa*2*PI/180);
+  double uinf = M*cos(aoa*PI/180);
+  double vinf = M*sin(aoa*PI/180);
 
   if(j<jtot and k<ktot){
     q += j*nvar + k*jtot*nvar + blockIdx.z*jtot*ktot*nvar;
@@ -39,6 +39,11 @@ void G2D::init(){
 
   HANDLE_ERROR( cudaMalloc((void**)&this->x[GPU], jtot*ktot*sizeof(double2)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->q[GPU], qcount*sizeof(double)) );
+  HANDLE_ERROR( cudaMalloc((void**)&this->qp,     qcount*sizeof(double)) );
+  HANDLE_ERROR( cudaMalloc((void**)&this->s,      qcount*sizeof(double)) );
+  HANDLE_ERROR( cudaMalloc((void**)&this->flx,    qcount*sizeof(double)) );
+  HANDLE_ERROR( cudaMalloc((void**)&this->wrk,  3*qcount*sizeof(double)) );
+  HANDLE_ERROR( cudaMalloc((void**)&this->dt, jtot*ktot*nl*sizeof(double)) );
 
   for(k=nghost; k<ktot-nghost+1; k++){
     for(j=nghost; j<jtot-nghost+1; j++){
@@ -94,8 +99,6 @@ void G2D::init(){
   init_flow<<<blk,thr>>>(jtot,ktot,nvar,nM,nAoa,nRey,q[GPU],machs[GPU],aoas[GPU]);
 
   this->metrics();
-
-  // this->apply_bc();
 
 }
 
