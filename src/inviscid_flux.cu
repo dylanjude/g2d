@@ -7,18 +7,14 @@
 
 template<int dir>
 __global__ void roe_flux(int jtot, int ktot, int nvar, int nghost,
-			 double* q_l, double* q_r, double* flx, double2* Sj, double* vol){
+			 double* q_l, double* q_r, double* flx, double2* Sj){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x + nghost;
   int k  = blockDim.y*blockIdx.y + threadIdx.y + nghost;
 
-  q_l += (j+k*jtot)*4    + blockIdx.z*jtot*ktot*4;
-  q_r += (j+k*jtot)*4    + blockIdx.z*jtot*ktot*4;
-  flx += (j+k*jtot)*4    + blockIdx.z*jtot*ktot*4;
-  Sj  += (j+k*jtot)      + blockIdx.z*jtot*ktot;
-  vol += (j+k*jtot)      + blockIdx.z*jtot*ktot;
-
-  int fidx = (j+k*jtot)*4    + blockIdx.z*jtot*ktot*nvar;
+  q_l += (j + k*jtot + blockIdx.z*jtot*ktot)*4;
+  q_r += (j + k*jtot + blockIdx.z*jtot*ktot)*4;
+  flx += (j + k*jtot + blockIdx.z*jtot*ktot)*4;
 
   if(j+nghost > jtot or k+nghost > ktot) return; // note we want the last face, where k+nghost==ktot
 
@@ -26,8 +22,8 @@ __global__ void roe_flux(int jtot, int ktot, int nvar, int nghost,
   double3 lam_l,lam_r,lam_av;
   double k_x, k_y;
 
-  k_x = Sj[0].x;
-  k_y = Sj[0].y;
+  k_x = Sj[j+k*jtot].x;
+  k_y = Sj[j+k*jtot].y;
 
   double rho_l  = q_l[0]; 
   double rho_r  = q_r[0];
@@ -291,14 +287,14 @@ void G2D::inviscid_flux(double* q, double* s){
   // J-Direction
   //
   if(order<5) muscl<0><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
-  roe_flux<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,ql,qr,flx,Sj,vol);
+  roe_flux<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,ql,qr,flx,Sj);
   add_iflux<0><<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx);
 
   // 
   // K-Direction
   //
   if(order<5) muscl<1><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
-  roe_flux<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,ql,qr,flx,Sk,vol);
+  roe_flux<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,ql,qr,flx,Sk);
   add_iflux<1><<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx);
 
 }

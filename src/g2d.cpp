@@ -6,7 +6,7 @@
 
 using namespace std;
 
-G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,double* reys,double* aoas,double* xy){
+G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,double* reys,double* aoas,double* xy,int eqns){
 
   printf("\n%4d Machs :", nM);
   for(int i=0; i<nM; i++) printf(" %12.4e",machs[i]);
@@ -14,7 +14,15 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,doub
   for(int i=0; i<nAoa; i++) printf(" %12.4e",aoas[i]);
   printf("\n%4d Reys  :",nRey);
   for(int i=0; i<nRey; i++) printf(" %12.4e",reys[i]);
-  printf("\n\n");
+  printf("\n");
+  if(eqns == EULER){
+    printf("  Eqn Set  :   Euler\n");
+  } else if(eqns == LAMINAR){
+    printf("  Eqn Set  :   Laminar\n");
+  } else {
+    printf("  Eqn Set  :   Turbulent\n");
+  }
+  printf("\n");
 
   this->order  = order;
   this->nghost = (order==5)? 3 : 2;
@@ -30,6 +38,9 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,doub
   this->machs[CPU] = machs;
   this->aoas[CPU]  = aoas;
   this->reys[CPU]  = reys;
+
+  this->eqns       = eqns;
+
 
   HANDLE_ERROR( cudaMalloc((void**)&this->machs[GPU],  nM*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->aoas[GPU], nAoa*sizeof(double)) );

@@ -23,6 +23,7 @@ int main(int argc, char** argv){
   inputs["reys"]    = "1000000";
   inputs["airfoil"] = "naca0012.xyz";
   inputs["order"]   = "3";
+  inputs["eqns"]    = "laminar";
 
   // parse everything into a map of <string : string>
   printf("Parsing inputs-------------------------------------\n");
@@ -47,6 +48,7 @@ int main(int argc, char** argv){
   double* reys;
   double* aoas;
   double* xy;
+  int eqns;
 
   // Spatial order
   order = stoi(inputs["order"]);
@@ -98,7 +100,15 @@ int main(int argc, char** argv){
     }
   }
 
-  G2D solver(nM,nRey,nAoA,jtot,ktot,order,machs,reys,aoas,xy);
+  if(inputs["eqns"].compare("euler")==0){
+    eqns = EULER;
+  } else if(inputs["eqns"].compare("lam")==0){
+    eqns = LAMINAR;
+  } else {
+    eqns = TURBULENT;
+  }
+
+  G2D solver(nM,nRey,nAoA,jtot,ktot,order,machs,reys,aoas,xy,eqns);
 
   solver.init();
 

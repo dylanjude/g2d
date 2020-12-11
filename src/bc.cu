@@ -50,8 +50,6 @@ __global__ void bc_visc_wall(int jtot,int ktot,int nvar,int nghost,double* q,dou
   int idx  = (j + k*jtot)*nvar + blockIdx.z*jtot*ktot*nvar;
   int midx = (j + (2*(nghost)-k-1)*jtot)*nvar + blockIdx.z*jtot*ktot*nvar;
 
-
-
   if(j<jtot and k<ktot){
     if(ratio > 0.99){
       q[idx+0] =  q[midx+0];  // rho
@@ -142,8 +140,8 @@ void G2D::apply_bc(int istep){
   //   ratio = (10.0 - 15.0*ratio + 6.0*ratio*ratio)*ratio*ratio*ratio; 
   // }
 
-  bc_visc_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],ratio);
-  // bc_inv_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],Sk,ratio);
+  // bc_visc_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],ratio);
+  bc_inv_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],Sk,ratio);
 
   // bc_far<KMAX_FACE><<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU]);
 

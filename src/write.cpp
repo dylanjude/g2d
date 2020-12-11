@@ -1,6 +1,7 @@
 #include "g2d.h"
 #include <cstdio>
 #include "gpu.h"
+#include <cmath>
 
 using namespace std;
 
@@ -50,7 +51,7 @@ void G2D::write_sols(){
 	  for (k=nskip; k<ktot-1-nskip+extra; k++){
 	    for (j=nskip; j<jtot-1-nskip+extra; j++){
 	      double qq = q[CPU][(j + k*jtot + l*jtot*ktot)*nvar+v];
-	      if(qq != qq) qq = 100000.0;
+	      if(not isnormal(qq)) qq = 100000.0;
 	      fprintf(fid, "%24.16e\n",qq);
 	    }
 	  }

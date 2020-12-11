@@ -43,7 +43,9 @@ void G2D::init(){
   HANDLE_ERROR( cudaMalloc((void**)&this->s,      qcount*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->wrk,  4*qcount*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->dt,     jtot*ktot*nl*sizeof(double)) );
-  HANDLE_ERROR( cudaMalloc((void**)&this->mulam,  jtot*ktot*nl*sizeof(double)) );
+  if(this->eqns != EULER){
+    HANDLE_ERROR( cudaMalloc((void**)&this->mulam,  jtot*ktot*nl*sizeof(double)) );
+  }
 
   for(k=nghost; k<ktot-nghost+1; k++){
     for(j=nghost; j<jtot-nghost+1; j++){

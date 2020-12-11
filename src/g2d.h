@@ -16,6 +16,10 @@
 #define KMIN_FACE 2
 #define KMAX_FACE 3
 
+#define EULER     0
+#define LAMINAR   1
+#define TURBULENT 2
+
 #include "gpu.h"
 #include "helper_math.h"
 
@@ -41,18 +45,21 @@ class G2D {
 
   double *xi, *eta;
 
+  int eqns;
+
   void apply_bc(int istep);
   void metrics();
   void inviscid_flux(double* q, double* s);
   void viscous_flux(double* q, double* s);
   void compute_rhs(double* q, double* s);
   void precondition(double* sin, double* sout);
+  void dadi(double* s);
   void check_convergence(double* s);
 
   void debug_print(int j, int k, int l, double* v, int nvar);
 
  public:
-  G2D(int nM,int nR,int nAoA,int jtot,int ktot, int order, double* machs,double* reys,double* aoas,double* xy);
+  G2D(int nM,int nR,int nAoA,int jtot,int ktot, int order, double* machs,double* reys,double* aoas,double* xy,int eqns);
   ~G2D();
   void init();
   void go();
