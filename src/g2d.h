@@ -54,7 +54,7 @@ class G2D {
   void compute_rhs(double* q, double* s);
   void precondition(double* sin, double* sout);
   void dadi(double* s);
-  void check_convergence(double* s);
+  void check_convergence(int istep, double* s);
 
   void debug_print(int j, int k, int l, double* v, int nvar);
 

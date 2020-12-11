@@ -53,7 +53,7 @@ __global__ void sum1(double* a, int n, double* b){
 }
 
 
-void G2D::check_convergence(double* s){
+void G2D::check_convergence(int istep, double* s){
 
   int nl        = nM*nRey*nAoa;
   int qcount    = nl*jtot*ktot*nvar;
@@ -104,6 +104,6 @@ void G2D::check_convergence(double* s){
     HANDLE_ERROR(cudaMemcpy(&normsq,scratch1,sizeof(double),cudaMemcpyDeviceToHost));
   }
 
-  printf("[All Norm] %16.8e\n", sqrt(normsq/idof));
+  printf("[All Norm] %6d %16.8e\n", istep, sqrt(normsq/idof));
 
 }

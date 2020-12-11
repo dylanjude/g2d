@@ -70,6 +70,7 @@ void G2D::go(){
 
   int nstep=100;
   int istep;
+  int resmod=(nstep > 1000)? 50 : 10;
 
   int nl     = nM*nRey*nAoa;
   int qcount = nl*jtot*ktot*nvar;
@@ -92,7 +93,9 @@ void G2D::go(){
     
     this->compute_rhs(q[GPU],s);
 
-    this->check_convergence(s);
+    if((istep+1) % resmod == 0){
+      this->check_convergence(istep+1, s);
+    }
 
     this->precondition(s,s);
 
