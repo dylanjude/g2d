@@ -63,6 +63,7 @@ void G2D::metrics(){
     vec = x1-x4;
     Sj[j+k*jtot].x = -vec.y;
     Sj[j+k*jtot].y =  vec.x;
+    vol[j+k*jtot]  = vol[j-1+k*jtot];
   }
 
   j=jtot-1;

@@ -22,7 +22,6 @@ void G2D::write_sols(){
   HANDLE_ERROR( cudaMemcpy(q[CPU], q[GPU], qcount*sizeof(double), cudaMemcpyDeviceToHost) );
 
   int nskip = max(nghost-SHOWFRINGE,0);
-  int kstride = jtot;
 
   int extra = (nghost <= SHOWFRINGE)? 0 : 1;
 
@@ -39,18 +38,20 @@ void G2D::write_sols(){
 
 	for (k=nskip; k<ktot-nskip+extra; k++){
 	  for (j=nskip; j<jtot-nskip+extra; j++){
-	    fprintf(fid, "%10.20lf\n",x[CPU][j + k*kstride].x);
+	    fprintf(fid, "%10.20lf\n",x[CPU][j + k*jtot].x);
 	  }
 	}
 	for (k=nskip; k<ktot-nskip+extra; k++){
 	  for (j=nskip; j<jtot-nskip+extra; j++){
-	    fprintf(fid, "%10.20lf\n",x[CPU][j + k*kstride].y);
+	    fprintf(fid, "%10.20lf\n",x[CPU][j + k*jtot].y);
 	  }
 	}
 	for(v=0; v<nvar; v++){
 	  for (k=nskip; k<ktot-1-nskip+extra; k++){
 	    for (j=nskip; j<jtot-1-nskip+extra; j++){
-	      fprintf(fid, "%24.16e\n",q[CPU][(j + k*kstride)*nvar+v]);
+	      double qq = q[CPU][(j + k*jtot + l*jtot*ktot)*nvar+v];
+	      if(qq != qq) qq = 100000.0;
+	      fprintf(fid, "%24.16e\n",qq);
 	    }
 	  }
 	}

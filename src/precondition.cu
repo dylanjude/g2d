@@ -1,7 +1,7 @@
 #include "g2d.h"
 
-#define DBGJ 87
-#define DBGK 42
+#define DBGJ 192
+#define DBGK 2
 
 // #define DADI_REDUCED_ORDER
 #define EPSLAM 0.08
@@ -162,6 +162,7 @@ __device__ void solve_tridiagonal(dadireal* L, dadireal* D, dadireal* U, dadirea
 
     U[idx] = U[idx]*inv_main_diag;
     R[idx] = (R[idx] - L[idx]*R[idx_m1])*inv_main_diag;
+
   }
 
   // Backward sweep
@@ -218,10 +219,16 @@ __device__ void solve_ptridiagonal(dadireal *a, dadireal* b, dadireal* c, dadire
 
 template<int dir>
 __global__ void compute_LDU(int jtot, int ktot, int nvar, double2* S, dadireal* L_DADI, dadireal* D_DADI, dadireal* U_DADI, 
-			    double* vol, double* dt_array, double* q, bool visc){
+			    double* vol, double* dt_array, double* q, double* mulam, double* machs, double* reys, int nM, int nAoa){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x;
   int k  = blockDim.y*blockIdx.y + threadIdx.y;
+  int im = blockIdx.z%nM;
+  // int ia = (blockIdx.z/nM)%nAoa;
+  int ir = blockIdx.z/(nM*nAoa);
+
+  double rey = reys[ir]/machs[im]; // reynolds number based on Mach
+
   
   if(j > jtot-1-2*NFDADI or k > ktot-1-2*NFDADI) return;
 
@@ -232,14 +239,14 @@ __global__ void compute_LDU(int jtot, int ktot, int nvar, double2* S, dadireal* 
 
   q += (j + k*jtot + blockIdx.z*jtot*ktot)*nvar;
 
+  mulam += blockIdx.z*jtot*ktot;
+
   int grid_idx = j + k*jtot;
   int soln_idx = (j + k*jtot + blockIdx.z*jtot*ktot)*4;
   int stride   = (dir==0)? 1 : jtot;
 
   int grid_idx_p1 = grid_idx + stride;
   int grid_idx_m1 = grid_idx - stride;
-  int soln_idx_p1 = grid_idx_p1 * 4;
-  int soln_idx_m1 = grid_idx_m1 * 4;
 
   dadireal jac    = 1.0/vol[grid_idx];
 
@@ -258,30 +265,28 @@ __global__ void compute_LDU(int jtot, int ktot, int nvar, double2* S, dadireal* 
   dadireal vis_D = 0.0;
   dadireal vis_U = 0.0;
 
-  // if (visc){
-  //   dadireal inv_rho = 1.0/q[soln_idx];
-  //   dadireal rho_m1  = q[soln_idx_m1];
-  //   dadireal rho_p1  = q[soln_idx_p1];
-  //   dadireal over_RePr  = 1.0 / ( Reynolds * Prandtl);
-  //   dadireal Sp, Sm, S0; // face sizes squared
-  //   Sm = dot(S[grid_idx_m1], S[grid_idx_m1])*d_grid->jacobian[grid_idx_m1];
-  //   S0 = dot(S[grid_idx   ], S[grid_idx   ])*d_grid->jacobian[grid_idx];
-  //   Sp = dot(S[grid_idx_p1], S[grid_idx_p1])*d_grid->jacobian[grid_idx_p1];
-  //   dadireal vnu    = ( mu_laminar[grid_idx] + 
-  // 		      mu_laminar[grid_idx_p1] + 
-  //   		      nu_turbulent[grid_idx]*rho  +
-  // 		      nu_turbulent[grid_idx_p1]*rho_p1 ) * over_RePr * 0.5;
-  //   dadireal vnu_m1 = ( mu_laminar[grid_idx] + 
-  // 		      mu_laminar[grid_idx_m1] + 
-  //   		      nu_turbulent[grid_idx]*rho  +
-  // 		      nu_turbulent[grid_idx_m1]*rho_m1 ) * over_RePr * 0.5;
-  //   dadireal d1 = 0.5 * (S0 + Sp) * GAMMA * vnu    * inv_rho * jac;
-  //   dadireal d2 = 0.5 * (S0 + Sm) * GAMMA * vnu_m1 * inv_rho * jac;
-  //   vis_L  = - d1;
-  //   vis_U  = - d2;
-  //   vis_D  = d1 + d2;
-  // }
+  if (mulam){
+    dadireal inv_rho = 1.0/q[0];
+    // dadireal rho_m1  = q[-stride*nvar];
+    // dadireal rho_p1  = q[ stride*nvar];
+    dadireal over_RePr  = 1.0 / (rey * PRANDTL);
+    dadireal Sp, Sm, S0; // face sizes squared
+    Sm = dot(S[grid_idx_m1], S[grid_idx_m1])/vol[grid_idx_m1];
+    S0 = dot(S[grid_idx   ], S[grid_idx   ])/vol[grid_idx];
+    Sp = dot(S[grid_idx_p1], S[grid_idx_p1])/vol[grid_idx_p1];
+    dadireal vnu    = ( mulam[grid_idx] +  mulam[grid_idx_p1] ) * over_RePr * 0.5;
+    		      // nu_turbulent[grid_idx]*rho  +
+  		      // nu_turbulent[grid_idx_p1]*rho_p1 ) * over_RePr * 0.5;
+    dadireal vnu_m1 = ( mulam[grid_idx] +  mulam[grid_idx_m1] ) * over_RePr * 0.5;
+    		      // nu_turbulent[grid_idx]*rho  +
+  		      // nu_turbulent[grid_idx_m1]*rho_m1 ) * over_RePr * 0.5;
+    dadireal d1 = 0.5 * (S0 + Sp) * GAMMA * vnu    * inv_rho * jac;
+    dadireal d2 = 0.5 * (S0 + Sm) * GAMMA * vnu_m1 * inv_rho * jac;
 
+    vis_L  = - d1;
+    vis_U  = - d2;
+    vis_D  = d1 + d2;
+  }
 
   // From Eqn 17b in "A Diagonal Form of an Implicit Approximate-Factorization Algorithm"
   dadireal lam0, lam2, lam3;
@@ -481,6 +486,8 @@ __global__ void tridiag(int jtot, int ktot, int nghost, dadireal *rhs, dadireal 
 
   idx_start = (idx_start + l*jtot*ktot)*4 + var;
 
+  // int debug = (k==2 and dir==0);
+
   if(per == 0){
     solve_tridiagonal(L_DADI,D_DADI,U_DADI,rhs,n,stride,idx_start);
   } 
@@ -528,8 +535,6 @@ void G2D::precondition(double* sin, double* sout){
   blk.y = (ktot-1-NFDADI*2)/thr.y+1;
   blk.z = nl;
 
-  bool visc=false;
-
   //
   // DADI method
   //
@@ -543,20 +548,24 @@ void G2D::precondition(double* sin, double* sout){
   linblk.x = (pts-1)/linthread.x+1;
   change_precision<0><<<linblk,linthread>>>(sout, R_DADI, nvar, pts);
 
+  HANDLE_ERROR( cudaMemset(L_DADI, 0, count4*sizeof(dadireal)) );
+  HANDLE_ERROR( cudaMemset(D_DADI, 0, count4*sizeof(dadireal)) );
+  HANDLE_ERROR( cudaMemset(U_DADI, 0, count4*sizeof(dadireal)) );
+
   dim3 triblocks(1,1,nl), trithreads(4,16,1);
 
   //
   // J-Direction: XI
   triblocks.y = (ktot-2*NFDADI)/trithreads.y+1; // Tri-diag solver kernel dims				
   invert_xi<<<blk,thr>>>(jtot,ktot,nvar,Sj,this->q[GPU],R_DADI);
-  compute_LDU<0><<<blk,thr>>>(jtot,ktot,nvar,Sj,L_DADI,D_DADI,U_DADI,vol,dt,this->q[GPU],visc);
-  tridiag<0,1><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI ); // note: periodic
+  compute_LDU<0><<<blk,thr>>>(jtot,ktot,nvar,Sj,L_DADI,D_DADI,U_DADI,vol,dt,this->q[GPU],mulam,machs[GPU],reys[GPU],nM,nAoa);
+  tridiag<0,1><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI ); // note: periodic (not for debug)
 
   //
   // K-Direction: ETA
   triblocks.y = (jtot-2*NFDADI)/trithreads.y+1; // Tri-diag solver kernel dims				
   invert_xi_eta<<<blk,thr>>>(jtot,ktot,Sj,Sk,R_DADI);
-  compute_LDU<1><<<blk,thr>>>(jtot,ktot,nvar,Sk,L_DADI,D_DADI,U_DADI,vol,dt,this->q[GPU],visc);
+  compute_LDU<1><<<blk,thr>>>(jtot,ktot,nvar,Sk,L_DADI,D_DADI,U_DADI,vol,dt,this->q[GPU],mulam,machs[GPU],reys[GPU],nM,nAoa);
   tridiag<1,0><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI ); // note: periodic
 
   //

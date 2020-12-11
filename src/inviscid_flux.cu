@@ -1,7 +1,7 @@
 #include "g2d.h"
 
-#define DBGJ 191
-#define DBGK 50
+#define DBGJ 87
+#define DBGK 3
 
 #define EPSROE 1.0e-1
 
@@ -131,7 +131,8 @@ __global__ void roe_flux(int jtot, int ktot, int nvar, int nghost,
   dF0 = lam_av.x * (drho_dp);
   dF1 = lam_av.x * ( (drho_dp)*u_av         + rho_av*(du - dV*r1) );
   dF2 = lam_av.x * ( (drho_dp)*v_av         + rho_av*(dv - dV*r2) );
-  dF3 = lam_av.x * ( (drho_dp)*q_sqr_av*0.5 + rho_av*(u_av*du + v_av*dv + V*dV ) );
+  dF3 = lam_av.x * ( (drho_dp)*q_sqr_av*0.5 + rho_av*(u_av*du + v_av*dv - V*dV ) );
+
   // eqn. 4.91
   dF0 = dF0 + lam_av.y * dp_p_rho_c;
   dF1 = dF1 + lam_av.y * dp_p_rho_c * (u_av + c_av*r1);
@@ -150,6 +151,10 @@ __global__ void roe_flux(int jtot, int ktot, int nvar, int nghost,
   flx[1] = half_face*( (rho_l*u_l*V_l + p_l*r1) + (rho_r*u_r*V_r + p_r*r1)  - dF1);
   flx[2] = half_face*( (rho_l*v_l*V_l + p_l*r2) + (rho_r*v_r*V_r + p_r*r2)  - dF2);
   flx[3] = half_face*( (e_l+p_l)*V_l + (e_r+p_r)*V_r                        - dF3);
+
+  // if(dir==1 and j==DBGJ and k==DBGK){
+  //   printf("___roe___%d %d -- %24.16e %24.16e\n", j, k, dF2,dF3);
+  // }
 
 }
 
@@ -260,6 +265,7 @@ void G2D::inviscid_flux(double* q, double* s){
   double* ql    = &wrk[c]; c+= primcount;
   double* qr    = &wrk[c]; c+= primcount;
   double* qprim = &wrk[c]; c+= primcount;
+  double* flx   = &wrk[c]; c+= primcount;
 
   dim3 vthr(32,4,4);
   dim3 thr(32,16,1);

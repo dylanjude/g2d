@@ -137,13 +137,13 @@ void G2D::apply_bc(int istep){
   thr.z = 1;
 
   double ratio = 1.0;
-  if(istep < 30){
-    ratio = ( istep*1.0 )/( 30.0 );                                                                                            
-    ratio = (10.0 - 15.0*ratio + 6.0*ratio*ratio)*ratio*ratio*ratio; 
-  }
+  // if(istep < 30){
+  //   ratio = ( istep*1.0 )/( 30.0 );                                                                                            
+  //   ratio = (10.0 - 15.0*ratio + 6.0*ratio*ratio)*ratio*ratio*ratio; 
+  // }
 
-  // bc_visc_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],ratio);
-  bc_inv_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],Sk,ratio);
+  bc_visc_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],ratio);
+  // bc_inv_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],Sk,ratio);
 
   // bc_far<KMAX_FACE><<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU]);
 

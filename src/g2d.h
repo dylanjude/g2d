@@ -5,7 +5,9 @@
 #define CPU 0
 #define GPU 1
 
-#define GAMMA 1.4
+#define GAMMA        1.4
+#define PRANDTL      0.72
+#define TURB_PRANDTL 0.9
 
 #define PI 3.1415926535897931
 
@@ -31,7 +33,8 @@ class G2D {
   double2* x[2];
   double* q[2];
 
-  double *qp, *dt, *flx, *wrk, *s;
+  double *qp, *dt, *wrk, *s;
+  double *mulam;
 
   double2 *Sj, *Sk;
   double* vol;
