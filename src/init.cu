@@ -23,7 +23,7 @@ __global__ void init_flow(int jtot,int ktot,int nvar,int nM,int nAoa,int nRey,
     q[1] = uinf*rinf;
     q[2] = vinf*rinf;
     q[3] = pinf/(GAMMA-1) + 0.5*rinf*(uinf*uinf+vinf*vinf);
-    q[4] = 3.0;
+    q[4] = (k > ktot-3)? 0.1 : 3.0; // maybe gradually ramp?
   }
 
 }
@@ -45,6 +45,8 @@ void G2D::init(){
   HANDLE_ERROR( cudaMalloc((void**)&this->dt,     jtot*ktot*nl*sizeof(double)) );
   if(this->eqns != EULER){
     HANDLE_ERROR( cudaMalloc((void**)&this->mulam,  jtot*ktot*nl*sizeof(double)) );
+    HANDLE_ERROR( cudaMalloc((void**)&this->muturb, jtot*ktot*nl*sizeof(double)) );
+    HANDLE_ERROR( cudaMemset(this->muturb, 0, jtot*ktot*nl*sizeof(double)) );
   }
 
   for(k=nghost; k<ktot-nghost+1; k++){

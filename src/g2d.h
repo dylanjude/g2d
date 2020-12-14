@@ -38,7 +38,7 @@ class G2D {
   double* q[2];
 
   double *qp, *dt, *wrk, *s;
-  double *mulam;
+  double *mulam, *muturb;
 
   double2 *Sj, *Sk;
   double* vol;
@@ -46,6 +46,7 @@ class G2D {
   double *xi, *eta;
 
   int eqns;
+  int istep;
 
   void apply_bc(int istep);
   void metrics();
@@ -55,6 +56,12 @@ class G2D {
   void precondition(double* sin, double* sout);
   void dadi(double* s);
   void check_convergence(int istep, double* s);
+  void sa_rhs(double* q, double* s);
+  void sa_adi(double* s);
+
+  void set_mulam(double* q);
+  void set_muturb(double* q);
+  void compute_vorticity(double* q, double* vort);
 
   void debug_print(int j, int k, int l, double* v, int nvar);
 

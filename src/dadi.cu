@@ -1,7 +1,7 @@
 #include "g2d.h"
 
-#define DBGJ 192
-#define DBGK 2
+#define DBGJ 87
+#define DBGK 30
 
 // #define DADI_REDUCED_ORDER
 #define EPSLAM 0.08
@@ -203,7 +203,8 @@ __device__ void solve_ptridiagonal(dadireal *a, dadireal* b, dadireal* c, dadire
 
 template<int dir>
 __global__ void compute_LDU(int jtot, int ktot, int nvar, double2* S, dadireal* L_DADI, dadireal* D_DADI, dadireal* U_DADI, 
-			    double* vol, double* dt_array, double* q, double* mulam, double* machs, double* reys, int nM, int nAoa){
+			    double* vol, double* dt_array, double* q, double* mulam, double* muturb, 
+			    double* machs, double* reys, int nM, int nAoa){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x;
   int k  = blockDim.y*blockIdx.y + threadIdx.y;
@@ -223,7 +224,8 @@ __global__ void compute_LDU(int jtot, int ktot, int nvar, double2* S, dadireal* 
   q += (j + k*jtot + blockIdx.z*jtot*ktot)*nvar;
 
   if(mulam){
-    mulam += blockIdx.z*jtot*ktot;
+    mulam  += blockIdx.z*jtot*ktot;
+    muturb += blockIdx.z*jtot*ktot;
   }
 
   int grid_idx = j + k*jtot;
@@ -252,21 +254,25 @@ __global__ void compute_LDU(int jtot, int ktot, int nvar, double2* S, dadireal* 
 
   if (mulam){
     dadireal inv_rho = 1.0/q[0];
-    // dadireal rho_m1  = q[-stride*nvar];
-    // dadireal rho_p1  = q[ stride*nvar];
+    dadireal rho_m1  = q[-stride*nvar];
+    dadireal rho_p1  = q[ stride*nvar];
     dadireal over_RePr  = 1.0 / (rey * PRANDTL);
     dadireal Sp, Sm, S0; // face sizes squared
     Sm = dot(S[grid_idx_m1], S[grid_idx_m1])/vol[grid_idx_m1];
     S0 = dot(S[grid_idx   ], S[grid_idx   ])/vol[grid_idx];
     Sp = dot(S[grid_idx_p1], S[grid_idx_p1])/vol[grid_idx_p1];
-    dadireal vnu    = ( mulam[grid_idx] +  mulam[grid_idx_p1] ) * over_RePr * 0.5;
-    		      // nu_turbulent[grid_idx]*rho  +
-  		      // nu_turbulent[grid_idx_p1]*rho_p1 ) * over_RePr * 0.5;
-    dadireal vnu_m1 = ( mulam[grid_idx] +  mulam[grid_idx_m1] ) * over_RePr * 0.5;
-    		      // nu_turbulent[grid_idx]*rho  +
-  		      // nu_turbulent[grid_idx_m1]*rho_m1 ) * over_RePr * 0.5;
+
+    dadireal vnu    = ( mulam[grid_idx]  +  mulam[grid_idx_p1] +
+			muturb[grid_idx] +  muturb[grid_idx_p1]) * over_RePr * 0.5;
+    dadireal vnu_m1 = ( mulam[grid_idx]  +  mulam[grid_idx_m1] +
+			muturb[grid_idx] +  muturb[grid_idx_m1]) * over_RePr * 0.5;
+
     dadireal d1 = 0.5 * (S0 + Sp) * GAMMA * vnu    * inv_rho * jac;
     dadireal d2 = 0.5 * (S0 + Sm) * GAMMA * vnu_m1 * inv_rho * jac;
+
+    // if(j==DBGJ and k==DBGK){
+    //   printf("%d %d | %17.9e %17.9e %17.9e\n", j, k, muturb[grid_idx],  muturb[grid_idx_p1], muturb[grid_idx_m1]);
+    // }
 
     vis_L  = - d1;
     vis_U  = - d2;
@@ -523,23 +529,40 @@ void G2D::dadi(double *sout){
 
   dim3 triblocks(1,1,nl), trithreads(4,16,1);
 
+  // debug_print(87,3,0,R_DADI,4);
+
   //
   // J-Direction: XI
-  triblocks.y = (ktot-2*NFDADI)/trithreads.y+1; // Tri-diag solver kernel dims				
+  triblocks.y = (ktot-2*NFDADI)/trithreads.y+1; // Tri-diag solver kernel dims
   invert_xi<<<blk,thr>>>(jtot,ktot,nvar,Sj,this->q[GPU],R_DADI);
-  compute_LDU<0><<<blk,thr>>>(jtot,ktot,nvar,Sj,L_DADI,D_DADI,U_DADI,vol,dt,this->q[GPU],mulam,machs[GPU],reys[GPU],nM,nAoa);
-  tridiag<0,1><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI ); // note: periodic (not for debug)
+  compute_LDU<0><<<blk,thr>>>(jtot,ktot,nvar,Sj,L_DADI,D_DADI,U_DADI,vol,dt,q[GPU],mulam,muturb,machs[GPU],reys[GPU],nM,nAoa);
+  tridiag<0,0><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI );
 
   //
   // K-Direction: ETA
   triblocks.y = (jtot-2*NFDADI)/trithreads.y+1; // Tri-diag solver kernel dims				
   invert_xi_eta<<<blk,thr>>>(jtot,ktot,Sj,Sk,R_DADI);
-  compute_LDU<1><<<blk,thr>>>(jtot,ktot,nvar,Sk,L_DADI,D_DADI,U_DADI,vol,dt,this->q[GPU],mulam,machs[GPU],reys[GPU],nM,nAoa);
-  tridiag<1,0><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI ); // note: periodic
+  compute_LDU<1><<<blk,thr>>>(jtot,ktot,nvar,Sk,L_DADI,D_DADI,U_DADI,vol,dt,q[GPU],mulam,muturb,machs[GPU],reys[GPU],nM,nAoa);
+  // debug_print(87,30,0,L_DADI,4);
+  // debug_print(87,30,0,D_DADI,4);
+  // debug_print(87,30,0,U_DADI,4);
+  // for(int k=1; k<ktot-1; k++){
+  //   debug_print(87,k,0,L_DADI,4);
+  // }
+  // for(int k=1; k<ktot-1; k++){
+  //   debug_print(87,k,0,D_DADI,4);
+  // }
+  // for(int k=1; k<ktot-1; k++){
+  //   debug_print(87,k,0,U_DADI,4);
+  // }
+  tridiag<1,0><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI );
+
 
   //
   // Last inversion 
   invert_eta<<<blk,thr>>>(jtot,ktot,nvar,Sk,this->q[GPU],R_DADI);
+
+  // debug_print(87,3,0,R_DADI,4);
 
   change_precision<1><<<linblk,linthread>>>(sout, R_DADI, nvar, pts);
 

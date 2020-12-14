@@ -27,7 +27,7 @@ void G2D::compute_rhs(double* qtest, double* stest){
   int nl     = nM*nRey*nAoa;
   int qcount = nl*jtot*ktot*nvar;
 
-  dim3 vthr(32,4,nvar);
+  dim3 vthr(32,4,4); // turb var already divided by volume
   dim3 vblk;
   vblk.x = (jtot-1-2*nghost)/vthr.x+1;
   vblk.y = (ktot-1-2*nghost)/vthr.y+1;
@@ -35,14 +35,28 @@ void G2D::compute_rhs(double* qtest, double* stest){
 
   HANDLE_ERROR( cudaMemset(stest, 0, qcount*sizeof(double)) );
 
-  inviscid_flux(qtest,stest);
+  // Set viscosity based on provided Q
+  if(this->eqns != EULER)     this->set_mulam(qtest);
+  if(this->eqns == TURBULENT) this->set_muturb(qtest);
 
+  this->apply_bc(istep);
+
+
+  // Inviscid Fluxes
+  this->inviscid_flux(qtest,stest);
+
+  // debug_print(87,3,0,qtest,5);
+
+  // Viscous Fluxes
   if(this->eqns != EULER){
-    viscous_flux(qtest,stest);
+    this->viscous_flux(qtest,stest);
+  }
+
+  // Turbulence Model
+  if(this->eqns == TURBULENT){
+    this->sa_rhs(qtest, stest);
   }
 
   bdf<<<vblk,vthr>>>(jtot,ktot,nvar,nghost,qtest,qp,stest,dt,vol);
-
-  // sa_rhs(qtest,stest);
 
 }

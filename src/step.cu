@@ -3,8 +3,8 @@
 __global__ void set_dt(int jtot,int ktot,int nvar,int nghost,
 		       double* q, double* dt, double* vol, double2* Sj, double2* Sk, double cfl){
 
-  int j  = blockDim.x*blockIdx.x + threadIdx.x + nghost;
-  int k  = blockDim.y*blockIdx.y + threadIdx.y + nghost;
+  int j  = blockDim.x*blockIdx.x + threadIdx.x;
+  int k  = blockDim.y*blockIdx.y + threadIdx.y;
 
   if(j>jtot-1 or k>ktot-1) return;
 
@@ -31,7 +31,8 @@ __global__ void set_dt(int jtot,int ktot,int nvar,int nghost,
   // double eigmax = abs(uu) + xsc + abs(vv) + ysc;
   double eigmax = abs(uu) + xsc + abs(vv) + ysc + sqrt(c2*vol[gidx]*vol[gidx]); // <-- last term to match 3d Garfield
 
-  int ib = (j+nghost < jtot and k+nghost < ktot);
+  // int ib = (j+nghost < jtot and k+nghost < ktot);
+  int ib = 1;//(j+nghost < jtot and k+nghost < ktot);
 
   dt[0] = ib*vol[gidx]*cfl/eigmax;
 
@@ -48,15 +49,6 @@ __global__ void update_q(int jtot,int ktot,int nvar,int nghost, double* q, doubl
   q  += j*nvar + k*jtot*nvar + blockIdx.z*jtot*ktot*nvar;
   s  += j*nvar + k*jtot*nvar + blockIdx.z*jtot*ktot*nvar;
 
-  // if(j < jtot and k < ktot){
-  //   if(j==DBGJ and k==DBGK){
-  //   // if(j>188 and k==DBGK){
-  //     // printf("\n");
-  //     printf("___dq___%d %d -- %24.16e %24.16e %24.16e %24.16e\n", j, k, s[0], s[1], s[2], s[3]);
-  //     // printf("\n");
-  //   }
-  // }
-
   if(j+nghost < jtot and k+nghost < ktot){
 
     for(int v=0; v<nvar; v++){
@@ -68,9 +60,15 @@ __global__ void update_q(int jtot,int ktot,int nvar,int nghost, double* q, doubl
 
 void G2D::go(){
 
-  int nstep=100;
-  int istep;
-  int resmod=(nstep > 1000)? 50 : 10;
+  int nstep=1000;
+  int resmod=10;
+  // if(nstep > 999){
+  //   resmod = 50;
+  // } else if(nstep > 99){
+  //   resmod = 10;
+  // } else {
+  //   resmod = 1;
+  // }
 
   int nl     = nM*nRey*nAoa;
   int qcount = nl*jtot*ktot*nvar;
@@ -81,21 +79,21 @@ void G2D::go(){
   blk.y = (ktot-1)/thr.y+1;
   blk.z = nl;
 
-  double cfl = 10.1;
+  double cfl = 10.0;
 
   for(istep=0; istep<nstep; istep++){
 
     HANDLE_ERROR( cudaMemcpy(qp, q[GPU], qcount*sizeof(double), cudaMemcpyDeviceToDevice) );
 
     set_dt<<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],dt,vol,Sj,Sk,cfl);
-
-    this->apply_bc(istep);
     
     this->compute_rhs(q[GPU],s);
 
     if((istep+1) % resmod == 0){
       this->check_convergence(istep+1, s);
     }
+
+    // debug_print(87,3,0,s,5);
 
     this->precondition(s,s);
 

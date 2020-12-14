@@ -25,6 +25,7 @@ __global__ void roe_flux(int jtot, int ktot, int nvar, int nghost,
   k_x = Sj[j+k*jtot].x;
   k_y = Sj[j+k*jtot].y;
 
+
   double rho_l  = q_l[0]; 
   double rho_r  = q_r[0];
   double rho_av = sqrt(rho_l*rho_r);
@@ -37,6 +38,10 @@ __global__ void roe_flux(int jtot, int ktot, int nvar, int nghost,
   double u_l  = q_l[1]*inv_rho_l;
   double u_r  = q_r[1]*inv_rho_r;
   double u_av = roe_wt_1*u_l + roe_wt_2*u_r;    
+
+  // if(dir==1 and j==DBGJ and k==DBGK){
+  //   printf("___roe___%d %d -- %24.16e %24.16e\n", j, k, u_l, u_r);
+  // }
 
   double v_l  = q_l[2]*inv_rho_l;
   double v_r  = q_r[2]*inv_rho_r;
@@ -149,7 +154,7 @@ __global__ void roe_flux(int jtot, int ktot, int nvar, int nghost,
   flx[3] = half_face*( (e_l+p_l)*V_l + (e_r+p_r)*V_r                        - dF3);
 
   // if(dir==1 and j==DBGJ and k==DBGK){
-  //   printf("___roe___%d %d -- %24.16e %24.16e\n", j, k, dF2,dF3);
+  //   printf("___roe___%d %d -- %24.16e %24.16e\n", j, k, V_l, V_r);
   // }
 
 }
@@ -296,5 +301,7 @@ void G2D::inviscid_flux(double* q, double* s){
   if(order<5) muscl<1><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
   roe_flux<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,ql,qr,flx,Sk);
   add_iflux<1><<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx);
+
+  // debug_print(87,3,0,flx,4);
 
 }

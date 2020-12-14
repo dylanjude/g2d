@@ -54,7 +54,8 @@ __device__ void fill_shared_vf(int jtot, int ktot, int nvar, double* qs, double*
 
 
 __global__ void compute_viscous_flux(int jtot, int ktot, int nvar, int nghost, double* q, double* rhs, 
-				     double2* Sj, double2* Sk, double* vol, double* flx_x, double* flx_y, double* mu_lam,
+				     double2* Sj, double2* Sk, double* vol, double* flx_x, double* flx_y, 
+				     double* mulam, double* muturb,
 				     double* machs, double* reys, int nM, int nAoa){
 
   extern __shared__ double qs[];
@@ -80,6 +81,9 @@ __global__ void compute_viscous_flux(int jtot, int ktot, int nvar, int nghost, d
 
   flx_x += (j + k*jtot + blockIdx.z*jtot*ktot)*3;
   flx_y += (j + k*jtot + blockIdx.z*jtot*ktot)*3;
+
+  mulam  += blockIdx.z*jtot*ktot;
+  muturb += blockIdx.z*jtot*ktot;
 
   int j_smem = threadIdx.x + 1;
   int k_smem = threadIdx.y + 1;
@@ -160,8 +164,8 @@ __global__ void compute_viscous_flux(int jtot, int ktot, int nvar, int nghost, d
   dvdy = xi_y*v_xi + eta_y*v_eta;
 
   //
-  lam_visc    = 0.5*(mu_lam[grid_idx] + mu_lam[grid_idx_m1]);
-  turb_visc   = 0.0; // 0.5*(mu_turb    + d_solution->nu_turbulent[grid_idx_m1]*qs[idxs_m1_p0_p0]);
+  lam_visc    = 0.5*(mulam[grid_idx] + mulam[grid_idx_m1]);
+  turb_visc   = 0.5*(muturb[grid_idx] + muturb[grid_idx_m1]);
   total_visc  = lam_visc + turb_visc;
   ndim_stress = fac*total_visc;
 
@@ -221,8 +225,8 @@ __global__ void compute_viscous_flux(int jtot, int ktot, int nvar, int nghost, d
   dvdy = xi_y*v_xi + eta_y*v_eta;
 
   //
-  lam_visc    = 0.5*(mu_lam[grid_idx] + mu_lam[grid_idx_m1]);
-  turb_visc   = 0.0; // 0.5*(mu_turb    + d_solution->nu_turbulent[grid_idx_m1]*qs[idxs_m1_p0_p0]);
+  lam_visc    = 0.5*(mulam[grid_idx] + mulam[grid_idx_m1]);
+  turb_visc   = 0.5*(muturb[grid_idx] + muturb[grid_idx_m1]);
   total_visc  = lam_visc + turb_visc;
   ndim_stress = fac*total_visc;
 
@@ -276,7 +280,15 @@ __global__ void add_vflux(int jtot, int ktot, int nvar, int nghost, double* s, d
 
 }
 
+void G2D::set_mulam(double* q){
+  int nl        = nM*nRey*nAoa;
+  dim3 thr(16,16,1);
+  dim3 blk(1,1,nl);
+  blk.x     = (jtot-1)/thr.x+1; 
+  blk.y     = (ktot-1)/thr.y+1; 
+  compute_mulam<<<blk,thr>>>(jtot,ktot,nvar,q,mulam);
 
+}
 
 void G2D::viscous_flux(double* q, double* s){
 
@@ -294,11 +306,9 @@ void G2D::viscous_flux(double* q, double* s){
 
   size_t mem = (thr.x+2) * (thr.y+2) * 4 * sizeof(double);
 
-  compute_mulam<<<blk,thr>>>(jtot,ktot,nvar,q,mulam);
+  // mulam and muturb should previously already been calculated
 
-  int rstride = nM*nAoa;
-
-  compute_viscous_flux<<<blk,thr,mem>>>(jtot,ktot,nvar,nghost,q,s,Sj,Sk,vol,flx_x,flx_y,mulam,machs[GPU],reys[GPU],nM,nAoa);
+  compute_viscous_flux<<<blk,thr,mem>>>(jtot,ktot,nvar,nghost,q,s,Sj,Sk,vol,flx_x,flx_y,mulam,muturb,machs[GPU],reys[GPU],nM,nAoa);
 
   // debug_print(87,2,0,flx_x,3);
   // debug_print(87,2,0,flx_y,3);

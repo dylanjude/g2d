@@ -56,7 +56,7 @@ __global__ void sum1(double* a, int n, double* b){
 void G2D::check_convergence(int istep, double* s){
 
   int nl        = nM*nRey*nAoa;
-  int qcount    = nl*jtot*ktot*nvar;
+  // int qcount    = nl*jtot*ktot*nvar;
   int i, leftover, smem;
 
   dim3 vthr(32,4,nvar);
