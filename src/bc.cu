@@ -117,6 +117,45 @@ __global__ void bc_inv_wall(int jtot,int ktot,int nvar,int nghost,double* q,doub
 
 }
 
+template<int face>
+__global__ void bc_far(int jtot,int ktot,int nvar,int nghost,double* q,double2* Sk){
+
+  int j,k;
+
+  if(face == KMAX_FACE){
+    j  = blockDim.x*blockIdx.x + threadIdx.x;
+    k  = ktot-threadIdx.y-1;
+  } else {
+    printf("BC far not implemented for this face\n");
+    return;
+  }
+
+  if(j>jtot-1 or k>ktot-1) return;
+
+  int idx   = (j + k*jtot + blockIdx.z*jtot*ktot)*nvar;
+  int cidx1 = (j + (ktot-nghost-1)*jtot + blockIdx.z*jtot*ktot)*nvar;
+  int cidx2 = (j + (ktot-nghost-2)*jtot + blockIdx.z*jtot*ktot)*nvar;
+
+  double2 out_vector = Sk[j + (ktot-nghost)*jtot]; // kmax face
+
+  // double imag   = 1.0/sqrt(dot(out_vector, out_vector));
+  // out_vector.x = out_vector.x * imag;
+  // out_vector.y = out_vector.y * imag;
+
+  double u_in    = q[cidx1+1]/q[cidx1];
+  double v_in    = q[cidx1+2]/q[cidx1];
+
+  double dotted  = u_in*out_vector.x + v_in*out_vector.y;
+  
+  if(dotted<0.0){ // inflow, use freestream
+    q[idx+4] = 0.1; // nu turb infinity;
+  } else {
+    q[idx+4] = 2*q[cidx1+4] - q[cidx2+4];
+  }
+
+  // everything else should not change
+
+}
 
 
 void G2D::apply_bc(int istep){
@@ -128,6 +167,8 @@ void G2D::apply_bc(int istep){
 
   blkj.x = (ktot-1)/thr.x+1; // j-face bc (k-varying)
   blkk.x = (jtot-1)/thr.x+1; // k-face bc (j-varying)
+
+  bc_far<KMAX_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],Sk);
 
   bc_periodic<JMIN_FACE><<<blkj,thr>>>(jtot,ktot,nvar,nghost,q[GPU]);
   bc_periodic<JMAX_FACE><<<blkj,thr>>>(jtot,ktot,nvar,nghost,q[GPU]);
@@ -146,6 +187,5 @@ void G2D::apply_bc(int istep){
     bc_visc_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],ratio);
   }
 
-  // bc_far<KMAX_FACE><<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU]);
 
 }

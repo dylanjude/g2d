@@ -60,7 +60,7 @@ __global__ void update_q(int jtot,int ktot,int nvar,int nghost, double* q, doubl
 
 void G2D::go(){
 
-  int nstep=1000;
+  int nstep=2000;
   int resmod=10;
   if(nstep > 999){
     resmod = 50;
@@ -79,7 +79,7 @@ void G2D::go(){
   blk.y = (ktot-1)/thr.y+1;
   blk.z = nl;
 
-  double cfl = 10.0;
+  double cfl = 20.0;
 
   for(istep=0; istep<nstep; istep++){
 
@@ -89,16 +89,22 @@ void G2D::go(){
     
     this->compute_rhs(q[GPU],s);
 
+    // debug_print(87,3,0,s,5);
+
+    // if(istep==nstep-1){
+    //   this->write_sols();
+    // }
+
     if((istep+1) % resmod == 0){
       this->check_convergence(istep+1, s);
     }
-
-    // debug_print(87,3,0,s,5);
 
     this->precondition(s,s);
 
     update_q<<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],s);
 
   }
+
+
 
 }

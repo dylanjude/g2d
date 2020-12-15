@@ -67,7 +67,7 @@ __global__ void sa_conv_diff(int jtot, int ktot, int nvar, int nghost, double* q
 
   double rey = reys[ir]/machs[im]; // reynolds number based on Mach
 
-  int in_range = (j >= nghost and j+nghost < jtot and k >= nghost and k+nghost < ktot);
+  int in_range = (j >= nghost and j+nghost < jtot and k >= nghost and k+nghost <= ktot);
 
   fill_shared_sa(jtot,ktot,nvar,q,mulam,snul,snut,1);  
 
@@ -357,9 +357,9 @@ __global__ void sa_prod_dest(int jtot, int ktot, int nvar, int nghost, double* q
 
     // rhs[soln_idx+4] = (rhs[soln_idx+4] + (prod - dest))*vol[grid_idx];
 
-    // rhs[soln_idx+4] = rhs[soln_idx+4] + (prod - dest);
+    rhs[soln_idx+4] = rhs[soln_idx+4] + (prod - dest);
 
-    rhs[soln_idx+4] = (rhs[soln_idx+4] + (prod - dest))*dt[grid_idx];
+    // rhs[soln_idx+4] = (rhs[soln_idx+4] + (prod - dest))*dt[grid_idx];
 
     // if(j==DBGJ and k==DBGK){
     //   printf("%d %d -- | %16.8e %16.8e\n", j, k, rhs[soln_idx+4], dt[grid_idx]);
@@ -439,7 +439,7 @@ __global__ void limit_dnut(int pts, int nvar, double* s, double* q){
     s[i*nvar+4] = 1e-10 - nut;
   }
 
-  q[i*nvar+4] = nut + s[i*nvar+4];
+  // q[i*nvar+4] = nut + s[i*nvar+4];
 
 }
 
@@ -575,7 +575,7 @@ void G2D::sa_rhs(double* qtest, double* stest){
 
   sa_prod_dest<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,qtest,stest,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,machs[GPU],reys[GPU],nM,nAoa);
 
-  this->sa_adi(stest);
+  // this->sa_adi(stest);
 
 }
 
@@ -628,17 +628,6 @@ void G2D::sa_adi(double* s){
 
   dim3 blocks(1,1,nl), threads(32,1,1);
 
-  // for(int j=0; j<jtot; j++){
-  //   debug_print(j,30,0,Lj,1);
-  // }
-  // for(int j=0; j<jtot; j++){
-  //   debug_print(j,30,0,Dj,1);
-  // }
-  // for(int j=0; j<jtot; j++){
-  //   debug_print(j,30,0,Uj,1);
-  // }
-
-
   //
   // Invert J-direction
   blocks.x = (ktot-2*nghost-1)/threads.x+1;
@@ -649,16 +638,12 @@ void G2D::sa_adi(double* s){
   blocks.x = (jtot-2*nghost-1)/threads.x+1;
   invert_turb<1><<<blocks,threads>>>(jtot,ktot,nghost,ssa,Lk,Dk,Uk);
 
-  // debug_print(30,30,0,ssa,1);
-
-
   restride_s<1><<<linblk,linthr>>>(jtot*ktot, nvar, s, ssa);
-
 
   // Limit delta nu, prevent from going negative
   limit_dnut<<<linblk,linthr>>>(jtot*ktot,nvar,s,q[GPU]);
 
-  set_muturb(this->q[GPU]);
+  // set_muturb(this->q[GPU]);
 
 
 }

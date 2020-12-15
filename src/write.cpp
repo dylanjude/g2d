@@ -7,6 +7,8 @@ using namespace std;
 
 #define SHOWFRINGE 1
 
+static int already_written = 0;
+
 void G2D::write_sols(){
 
   int nl     = nM*nRey*nAoa;
@@ -20,6 +22,12 @@ void G2D::write_sols(){
     this->q[CPU] = new double[nRey*nAoa*nM*jtot*ktot*nvar];
   }
 
+  if(already_written){
+    printf("ignoring subsequent writes\n");
+    return;
+  }
+  already_written=1;
+  // HANDLE_ERROR( cudaMemcpy(q[CPU], s, qcount*sizeof(double), cudaMemcpyDeviceToHost) );
   HANDLE_ERROR( cudaMemcpy(q[CPU], q[GPU], qcount*sizeof(double), cudaMemcpyDeviceToHost) );
 
   int nskip = max(nghost-SHOWFRINGE,0);

@@ -240,7 +240,7 @@ __global__ void to_prim(int jtot, int ktot, int nvar, double* q, double* qprim){
 }
 
 template<int dir>
-__global__ void add_iflux(int jtot, int ktot, int nvar, int nghost, double* s, double* flx){
+__global__ void add_iflux(int jtot, int ktot, int nvar, int nghost, double* s, double* flx, double* vol){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x + nghost;
   int k  = blockDim.y*blockIdx.y + threadIdx.y + nghost;
@@ -253,7 +253,7 @@ __global__ void add_iflux(int jtot, int ktot, int nvar, int nghost, double* s, d
 
   int stride = (dir==0)? 1 : jtot;
 
-  s[v] -= flx[stride*4+v] - flx[v];
+  s[v] -= (flx[stride*4+v] - flx[v])/vol[j+k*jtot];
 
 }
 
@@ -293,14 +293,14 @@ void G2D::inviscid_flux(double* q, double* s){
   //
   if(order<5) muscl<0><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
   roe_flux<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,ql,qr,flx,Sj);
-  add_iflux<0><<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx);
+  add_iflux<0><<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx,vol);
 
   // 
   // K-Direction
   //
   if(order<5) muscl<1><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
   roe_flux<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,ql,qr,flx,Sk);
-  add_iflux<1><<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx);
+  add_iflux<1><<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx,vol);
 
   // debug_print(87,3,0,flx,4);
 

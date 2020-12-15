@@ -263,7 +263,7 @@ __global__ void compute_mulam(int jtot, int ktot, int nvar, double* q, double* m
 
 }
 
-__global__ void add_vflux(int jtot, int ktot, int nvar, int nghost, double* s, double* flx_x, double* flx_y){
+__global__ void add_vflux(int jtot, int ktot, int nvar, int nghost, double* s, double* flx_x, double* flx_y, double* vol){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x + nghost;
   int k  = blockDim.y*blockIdx.y + threadIdx.y + nghost;
@@ -275,8 +275,8 @@ __global__ void add_vflux(int jtot, int ktot, int nvar, int nghost, double* s, d
   flx_x  += (j      + k*jtot      + blockIdx.z*jtot*ktot)*3;
   flx_y  += (j      + k*jtot      + blockIdx.z*jtot*ktot)*3;
 
-  s[v+1] += flx_x[v+3     ] - flx_x[v];
-  s[v+1] += flx_y[v+3*jtot] - flx_y[v];
+  s[v+1] += (flx_x[v+3     ] - flx_x[v])/vol[j+k*jtot];
+  s[v+1] += (flx_y[v+3*jtot] - flx_y[v])/vol[j+k*jtot];
 
 }
 
@@ -319,7 +319,7 @@ void G2D::viscous_flux(double* q, double* s){
   vblk_ng.y = (ktot-1-nghost*2)/vthr.y+1;
   vblk_ng.z = nl;
 
-  add_vflux<<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx_x,flx_y);
+  add_vflux<<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx_x,flx_y,vol);
 
   // debug_print(87,2,0,s,5);
 

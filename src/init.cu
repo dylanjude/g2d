@@ -104,6 +104,16 @@ void G2D::init(){
 
   this->metrics();
 
+  // Set viscosities and apply an initial boundary condition
+  if(this->eqns != EULER)     this->set_mulam(q[GPU]);
+  if(this->eqns == TURBULENT) this->set_muturb(q[GPU]);
+  this->apply_bc(istep);
+
+  // Set viscosities and apply an initial boundary condition
+  if(this->eqns != EULER)     this->set_mulam(q[GPU]);
+  if(this->eqns == TURBULENT) this->set_muturb(q[GPU]);
+  this->apply_bc(istep);
+
 }
 
 

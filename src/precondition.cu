@@ -26,7 +26,7 @@ void G2D::precondition(double* sin, double* sout){
     HANDLE_ERROR( cudaMemcpy(sout, sin, qcount*sizeof(double), cudaMemcpyDeviceToDevice) );
   }
 
-  dim3 vthr(32,4,4);
+  dim3 vthr(32,4,nvar);
   dim3 vblk;
   vblk.x = (jtot-1-nghost*2)/vthr.x+1;
   vblk.y = (ktot-1-nghost*2)/vthr.y+1;
@@ -43,9 +43,9 @@ void G2D::precondition(double* sin, double* sout){
   // Mean-flow equations:
   this->dadi(sout);
 
-  // // Turb equation:
-  // if(eqns == TURBULENT){
-  //   this->sa_adi(sout);
-  // }
+  // Turb equation:
+  if(eqns == TURBULENT){
+    this->sa_adi(sout);
+  }
 
 }
