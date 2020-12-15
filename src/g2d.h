@@ -35,6 +35,7 @@ class G2D {
 
   double2* x0;
   double2* x[2];
+  double2* xc;
   double* q[2];
 
   double *qp, *dt, *wrk, *s;

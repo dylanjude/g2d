@@ -67,6 +67,7 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,doub
   mulam  = NULL;
   wrk    = NULL;
   s      = NULL;
+  xc     = NULL;
 
 }
 
@@ -88,6 +89,7 @@ G2D::~G2D(){
   if(Sj)         HANDLE_ERROR( cudaFree(Sj) );
   if(Sk)         HANDLE_ERROR( cudaFree(Sk) );
   if(vol)        HANDLE_ERROR( cudaFree(vol) );
+  if(xc)         HANDLE_ERROR( cudaFree(xc) );
 
   x[CPU]     = NULL;
   x[GPU]     = NULL;
@@ -104,6 +106,7 @@ G2D::~G2D(){
   vol        = NULL;
   mulam      = NULL;
   wrk        = NULL;
+  xc         = NULL;
 
   printf("# All CPU and GPU memory has been cleaned up.\n");
 

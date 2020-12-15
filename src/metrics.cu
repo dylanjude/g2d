@@ -14,10 +14,12 @@ void G2D::metrics(){
   if(Sj)  HANDLE_ERROR( cudaFree(Sj) );
   if(Sk)  HANDLE_ERROR( cudaFree(Sk) );
   if(vol) HANDLE_ERROR( cudaFree(vol) );
+  if(xc)  HANDLE_ERROR( cudaFree(xc) );
 
-  Sj = new double2[jtot*ktot];
-  Sk = new double2[jtot*ktot];
+  Sj  = new double2[jtot*ktot];
+  Sk  = new double2[jtot*ktot];
   vol = new double[jtot*ktot];
+  xc  = new double2[jtot*ktot];
 
   for(k=0;k<ktot-1;k++){
     kp=k+1;
@@ -39,6 +41,8 @@ void G2D::metrics(){
       Sk[j+k*jtot].y =  vec.x;
       
       vol[j+k*jtot] = 0.5*((x1.x-x3.x)*(x2.y-x4.y)+(x4.x-x2.x)*(x1.y-x3.y));
+
+      xc[j+k*jtot] = 0.25*(x1 + x2 + x3 + x4);
 
     }
   }
@@ -90,5 +94,11 @@ void G2D::metrics(){
   HANDLE_ERROR( cudaMalloc((void**)&vol, jtot*ktot*sizeof(double)) );
   HANDLE_ERROR( cudaMemcpy(vol, tmp, jtot*ktot*sizeof(double), cudaMemcpyHostToDevice) );
   delete[] tmp;
+
+  // Copy xc to GPU
+  tmp2 = xc;
+  HANDLE_ERROR( cudaMalloc((void**)&xc, jtot*ktot*sizeof(double2)) );
+  HANDLE_ERROR( cudaMemcpy(xc, tmp2, jtot*ktot*sizeof(double2), cudaMemcpyHostToDevice) );
+  delete[] tmp2;
 
 }
