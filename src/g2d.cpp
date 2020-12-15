@@ -8,21 +8,24 @@ using namespace std;
 
 G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,double* reys,double* aoas,double* xy,int eqns){
 
-  printf("\n%4d Machs :", nM);
+  printf("#\n");
+  printf("# %4d Machs :", nM);
   for(int i=0; i<nM; i++) printf(" %12.4e",machs[i]);
-  printf("\n%4d AoAs  :",nAoa);
+  printf("\n");
+  printf("# %4d AoAs  :",nAoa);
   for(int i=0; i<nAoa; i++) printf(" %12.4e",aoas[i]);
-  printf("\n%4d Reys  :",nRey);
+  printf("\n");
+  printf("# %4d Reys  :",nRey);
   for(int i=0; i<nRey; i++) printf(" %12.4e",reys[i]);
   printf("\n");
   if(eqns == EULER){
-    printf("  Eqn Set  :   Euler\n");
+    printf("#  Eqn Set  :   Euler\n");
   } else if(eqns == LAMINAR){
-    printf("  Eqn Set  :   Laminar\n");
+    printf("#  Eqn Set  :   Laminar\n");
   } else {
-    printf("  Eqn Set  :   Turbulent\n");
+    printf("#  Eqn Set  :   Turbulent\n");
   }
-  printf("\n");
+  printf("#\n");
 
   this->order  = order;
   this->nghost = (order==5)? 3 : 2;
@@ -102,6 +105,6 @@ G2D::~G2D(){
   mulam      = NULL;
   wrk        = NULL;
 
-  printf("All CPU and GPU memory has been cleaned up.\n");
+  printf("# All CPU and GPU memory has been cleaned up.\n");
 
 }

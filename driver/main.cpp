@@ -26,7 +26,7 @@ int main(int argc, char** argv){
   inputs["eqns"]    = "laminar";
 
   // parse everything into a map of <string : string>
-  printf("Parsing inputs-------------------------------------\n");
+  printf("# Parsing inputs-------------------------------------\n");
   while (getline(startfile, line)){
     iss = istringstream(line);
     getline(iss, name, ':');
@@ -38,9 +38,9 @@ int main(int argc, char** argv){
     while(value[0] == ' ') value.erase(0,1);  // trim leading spaces
 
     inputs[name]=value;
-    printf("%16s = %s\n", name.c_str(), value.c_str());
+    printf("# %16s = %s\n", name.c_str(), value.c_str());
   }
-  printf("---------------------------------------------------\n");
+  printf("# ---------------------------------------------------\n");
 
   int nM,nRey,nAoA;
   int jtot,ktot,order;
@@ -88,9 +88,9 @@ int main(int argc, char** argv){
 
   // Read Airfoil Coords
   startfile = ifstream(inputs["airfoil"]);
-  printf("reading [%s]\n",inputs["airfoil"].c_str());
+  printf("# reading [%s]\n",inputs["airfoil"].c_str());
   startfile >> jtot >> ktot;
-  printf("jtot, ktot: %d %d\n", jtot, ktot);
+  printf("# jtot, ktot: %d %d\n", jtot, ktot);
   xy = new double[2*jtot*ktot];
   for(int v=0; v<2; v++){
     for(int k=0; k<ktot; k++){
