@@ -1,4 +1,6 @@
 #include "g2d.h"
+#include <cstdio>
+#include <cstdlib>
 
 #define GROUP_MEANFLOW
 
@@ -45,7 +47,7 @@ __global__ void reorder_and_square(int jtot, int ktot, int nvar, int nghost, dou
 
 }
 
-__global__ void sum1(double* a, int n, double* b){
+__global__ void eachsum(double* a, int n, double* b){
   
   extern __shared__ double ish1[];
   int tid = threadIdx.x;
@@ -162,9 +164,9 @@ void G2D::check_convergence(int istep, double* s){
     smem = threads.x*sizeof(double);
 
     if(i%2 == 0){
-      sum1<<<blocks,threads,smem>>>(scratch1, leftover, scratch2);
+      eachsum<<<blocks,threads,smem>>>(scratch1, leftover, scratch2);
     } else {
-      sum1<<<blocks,threads,smem>>>(scratch2, leftover, scratch1);
+      eachsum<<<blocks,threads,smem>>>(scratch2, leftover, scratch1);
     }
     i++;
     leftover = blocks.x;
@@ -182,14 +184,23 @@ void G2D::check_convergence(int istep, double* s){
 
   // printf("%6d ",istep);
 
+  FILE* fid;
+  fid = fopen("residuals.dat", "a");
+
+  double elapsed = timer.peek();
+
   for(l=0; l<nl; l++){
     printf("%6d %3d ", istep, l);
+    fprintf(fid,"%6d %3d ", istep, l);
     for(v=0; v<nv; v++){
       printf("%16.8e ", sqrt(l2var[v + l*nv]));
+      fprintf(fid,"%16.8e ", sqrt(l2var[v + l*nv]));
     }
-    // printf("# <-- caution squared! \n");
-    printf(" # [gpu]\n");
+    printf(" #\n");
+    fprintf(fid,"%12.6e #\n", elapsed);
   }
+
+  fclose(fid);
 
   // delete[] scpu;
   // delete[] scpu2;

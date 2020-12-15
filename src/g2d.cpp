@@ -3,6 +3,8 @@
 #include <cstring>
 #include <cstdio>
 #include "gpu.h"
+#include <ctime>
+#include <chrono>
 
 using namespace std;
 
@@ -55,6 +57,19 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,doub
   this->nvar       = 5;
   this->x0         = (double2*)xy;
 
+  // Print a header in the residual file
+  FILE* fid;
+  string ts = Timer::timestring();
+  // time_t now = chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+  // string ts(30, '\0');
+  // strftime(&ts[0], ts.size(), "%Y-%m-%d %H:%M:%S", localtime(&now));
+  fid = fopen("residuals.dat", "w");
+  fprintf(fid, "# %s\n", ts.c_str());
+  fprintf(fid,"# iter  id %16s %16s %12s\n", "l2[mean_flow]", "l2[turb]", "time[s]");
+  fclose(fid);
+
+  this->timer.tick(); // start the clock
+
   x[CPU] = NULL;
   x[GPU] = NULL;
   q[CPU] = NULL;
@@ -72,6 +87,10 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,doub
 }
 
 G2D::~G2D(){
+
+  double elapsed = timer.tock();
+
+  printf("# Total elapsed time: %10.3f s\n", elapsed);
 
   if(q[CPU]) delete[] q[CPU];
   if(x[CPU]) delete[] x[CPU];

@@ -60,7 +60,7 @@ __global__ void update_q(int jtot,int ktot,int nvar,int nghost, double* q, doubl
 
 void G2D::go(){
 
-  int nstep=10000;
+  int nstep=1000;
   int resmod=10;
   if(nstep > 999){
     resmod = 50;

@@ -22,6 +22,7 @@
 
 #include "gpu.h"
 #include "helper_math.h"
+#include "timer.h"
 
 class G2D {
 
@@ -48,6 +49,8 @@ class G2D {
 
   int eqns;
   int istep;
+
+  Timer timer;
 
   void apply_bc(int istep);
   void metrics();
