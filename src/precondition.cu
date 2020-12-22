@@ -26,6 +26,8 @@ void G2D::precondition(double* sin, double* sout){
     HANDLE_ERROR( cudaMemcpy(sout, sin, qcount*sizeof(double), cudaMemcpyDeviceToDevice) );
   }
 
+  this->zero_bc(sout);
+
   dim3 vthr(32,4,nvar);
   dim3 vblk;
   vblk.x = (jtot-1-nghost*2)/vthr.x+1;
@@ -33,6 +35,8 @@ void G2D::precondition(double* sin, double* sout){
   vblk.z = nl;
 
   times_dt<<<vblk,vthr>>>(jtot,ktot,nvar,nghost,sout,dt);
+  
+  // return;
 
   // Set viscosity based on stored Q
   if(this->eqns != EULER)     this->set_mulam(this->q[GPU]);
@@ -47,5 +51,7 @@ void G2D::precondition(double* sin, double* sout){
   if(eqns == TURBULENT){
     this->sa_adi(sout);
   }
+
+  this->zero_bc(sout);
 
 }

@@ -1,6 +1,6 @@
 #include "g2d.h"
 
-#define DBGJ 87
+#define DBGJ 97
 #define DBGK 2
 
 __device__ void fill_shared_vf(int jtot, int ktot, int nvar, double* qs, double* q, int pad){
@@ -234,6 +234,10 @@ __global__ void compute_viscous_flux(int jtot, int ktot, int nvar, int nghost, d
   tau_yy = ndim_stress*(2.0*dvdy - dudx);
   tau_xy = 1.5*ndim_stress*(dudy + dvdx); 
 
+  // if(j==DBGJ and k==DBGK){
+  //   printf("__vfl__ %24.16e %24.16e %24.16e \n", lam_visc, mulam[grid_idx], mulam[grid_idx_m1]);
+  // }
+
   total_Prandtl_visc = inv_Prandtl*lam_visc + inv_turb_Prandtl*turb_visc;
   ndim_temp_grad     = -inv_Reynolds*total_Prandtl_visc/(GAMMA-1.0);
 
@@ -277,6 +281,8 @@ __global__ void add_vflux(int jtot, int ktot, int nvar, int nghost, double* s, d
 
   s[v+1] += (flx_x[v+3     ] - flx_x[v])/vol[j+k*jtot];
   s[v+1] += (flx_y[v+3*jtot] - flx_y[v])/vol[j+k*jtot];
+  // s[v+1] += (flx_x[v+3     ] - flx_x[v]);
+  // s[v+1] += (flx_y[v+3*jtot] - flx_y[v]);
 
 }
 
@@ -287,7 +293,6 @@ void G2D::set_mulam(double* q){
   blk.x     = (jtot-1)/thr.x+1; 
   blk.y     = (ktot-1)/thr.y+1; 
   compute_mulam<<<blk,thr>>>(jtot,ktot,nvar,q,mulam);
-
 }
 
 void G2D::viscous_flux(double* q, double* s){
@@ -319,8 +324,11 @@ void G2D::viscous_flux(double* q, double* s){
   vblk_ng.y = (ktot-1-nghost*2)/vthr.y+1;
   vblk_ng.z = nl;
 
+  // debug_print(97,2,0,s,5);
+
   add_vflux<<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx_x,flx_y,vol);
 
-  // debug_print(87,2,0,s,5);
+  // debug_print(97,2,0,s,5);
+  // debug_print(97,2,0,flx_y,3);
 
 }

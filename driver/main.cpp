@@ -102,7 +102,7 @@ int main(int argc, char** argv){
 
   if(inputs["eqns"].compare("euler")==0){
     eqns = EULER;
-  } else if(inputs["eqns"].compare("lam")==0){
+  } else if(inputs["eqns"].compare("laminar")==0){
     eqns = LAMINAR;
   } else {
     eqns = TURBULENT;

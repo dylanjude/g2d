@@ -3,7 +3,7 @@
 #define DBGJ 87
 #define DBGK 30
 
-#define DADI_REDUCED_ORDER
+// #define DADI_REDUCED_ORDER
 #define EPSLAM 0.08
 #define NFDADI 1
 
@@ -529,25 +529,41 @@ void G2D::dadi(double *sout){
 
   dim3 triblocks(1,1,nl), trithreads(4,16,1);
 
-  // debug_print(87,3,0,R_DADI,4);
+  // debug_print(87,2,0,R_DADI,4);
+  // for(int k=0;k<ktot;k++){
+  //   debug_print(87,k,0,R_DADI,4);
+  // }
 
   //
   // J-Direction: XI
   triblocks.y = (ktot-2*NFDADI)/trithreads.y+1; // Tri-diag solver kernel dims
   invert_xi<<<blk,thr>>>(jtot,ktot,nvar,Sj,this->q[GPU],R_DADI);
   compute_LDU<0><<<blk,thr>>>(jtot,ktot,nvar,Sj,L_DADI,D_DADI,U_DADI,vol,dt,q[GPU],mulam,muturb,machs[GPU],reys[GPU],nM,nAoa);
-  tridiag<0,1><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI );
+  tridiag<0,0><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI );
 
   //
   // K-Direction: ETA
   triblocks.y = (jtot-2*NFDADI)/trithreads.y+1; // Tri-diag solver kernel dims				
   invert_xi_eta<<<blk,thr>>>(jtot,ktot,Sj,Sk,R_DADI);
   compute_LDU<1><<<blk,thr>>>(jtot,ktot,nvar,Sk,L_DADI,D_DADI,U_DADI,vol,dt,q[GPU],mulam,muturb,machs[GPU],reys[GPU],nM,nAoa);
+
+  // for(int k=0;k<ktot;k++){
+  //   debug_print(87,k,0,L_DADI,4);
+  // }
+  // for(int k=0;k<ktot;k++){
+  //   debug_print(87,k,0,D_DADI,4);
+  // }
+  // for(int k=0;k<ktot;k++){
+  //   debug_print(87,k,0,U_DADI,4);
+  // }
+
   tridiag<1,0><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI );
 
   //
   // Last inversion 
   invert_eta<<<blk,thr>>>(jtot,ktot,nvar,Sk,this->q[GPU],R_DADI);
+
+  // debug_print(87,3,0,R_DADI,4);
 
   change_precision<1><<<linblk,linthread>>>(sout, R_DADI, nvar, pts);
 

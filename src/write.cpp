@@ -27,8 +27,8 @@ void G2D::write_sols(){
     return;
   }
   already_written=1;
-  // HANDLE_ERROR( cudaMemcpy(q[CPU], s, qcount*sizeof(double), cudaMemcpyDeviceToHost) );
-  HANDLE_ERROR( cudaMemcpy(q[CPU], q[GPU], qcount*sizeof(double), cudaMemcpyDeviceToHost) );
+  HANDLE_ERROR( cudaMemcpy(q[CPU], s, qcount*sizeof(double), cudaMemcpyDeviceToHost) );
+  // HANDLE_ERROR( cudaMemcpy(q[CPU], q[GPU], qcount*sizeof(double), cudaMemcpyDeviceToHost) );
 
   int nskip = max(nghost-SHOWFRINGE,0);
 
@@ -59,7 +59,7 @@ void G2D::write_sols(){
 	  for (k=nskip; k<ktot-1-nskip+extra; k++){
 	    for (j=nskip; j<jtot-1-nskip+extra; j++){
 	      double qq = q[CPU][(j + k*jtot + l*jtot*ktot)*nvar+v];
-	      if(not isnormal(qq)) qq = 100000.0;
+	      if(not isfinite(qq)) qq = 100000.0;
 	      fprintf(fid, "%24.16e\n",qq);
 	    }
 	  }

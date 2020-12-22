@@ -47,19 +47,34 @@ class G2D {
 
   double *xi, *eta;
 
+  FILE* resfile;
+
   int eqns;
   int istep;
 
+  int debug_flag;
+
+  int gmres_nkrylov;
+  double *gmres_r, *gmres_Av, *gmres_h, *gmres_g, *gmres_v, *gmres_giv, *gmres_scr;
+
   Timer timer;
 
-  void apply_bc(int istep);
+  void apply_bc(int istep, double* q);
+  void zero_bc(double* s);
   void metrics();
   void inviscid_flux(double* q, double* s);
   void viscous_flux(double* q, double* s);
   void compute_rhs(double* q, double* s);
   void precondition(double* sin, double* sout);
+  void gmres(double* s);
   void dadi(double* s);
-  void check_convergence(int istep, double* s);
+  void check_convergence(double* s);
+
+  void vdp(double* a, double* b, double* out);
+  void mvp(double* a, double* b);
+  void axpy(double* a, double* x, double* y, double* out);
+  void l2norm(double* vec, double* l2);
+
   void sa_rhs(double* q, double* s);
   void sa_adi(double* s);
 

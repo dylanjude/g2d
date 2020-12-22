@@ -21,11 +21,11 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,doub
   for(int i=0; i<nRey; i++) printf(" %12.4e",reys[i]);
   printf("\n");
   if(eqns == EULER){
-    printf("#  Eqn Set  :   Euler\n");
+    printf("#    Eqn Set :   Euler\n");
   } else if(eqns == LAMINAR){
-    printf("#  Eqn Set  :   Laminar\n");
+    printf("#    Eqn Set :   Laminar\n");
   } else {
-    printf("#  Eqn Set  :   Turbulent\n");
+    printf("#    Eqn Set :   Turbulent\n");
   }
   printf("#\n");
 
@@ -44,8 +44,12 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,doub
   this->aoas[CPU]  = aoas;
   this->reys[CPU]  = reys;
 
-  this->eqns       = eqns;
+  printf("#    CFD Dims : %d %d\n", this->jtot, this->ktot);
 
+  this->gmres_nkrylov = 10;
+  this->resfile = NULL;
+
+  this->eqns       = eqns;
 
   HANDLE_ERROR( cudaMalloc((void**)&this->machs[GPU],  nM*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->aoas[GPU], nAoa*sizeof(double)) );
@@ -57,6 +61,8 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,doub
   this->nvar       = 5;
   this->x0         = (double2*)xy;
 
+  this->debug_flag = 0;
+
   // Print a header in the residual file
   FILE* fid;
   string ts = Timer::timestring();
@@ -65,7 +71,7 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,doub
   // strftime(&ts[0], ts.size(), "%Y-%m-%d %H:%M:%S", localtime(&now));
   fid = fopen("residuals.dat", "w");
   fprintf(fid, "# %s\n", ts.c_str());
-  fprintf(fid,"# iter  id %16s %16s %12s\n", "l2[mean_flow]", "l2[turb]", "time[s]");
+  fprintf(fid,"# iter lin id %16s %16s %16s %14s\n", "l2[mean_flow]", "l2[turb]", "l2[all]", "time[s]");
   fclose(fid);
 
   this->timer.tick(); // start the clock
@@ -83,6 +89,14 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,doub
   wrk    = NULL;
   s      = NULL;
   xc     = NULL;
+
+  gmres_r   = NULL;
+  gmres_Av  = NULL;
+  gmres_h   = NULL;
+  gmres_g   = NULL;
+  gmres_v   = NULL;
+  gmres_giv = NULL;
+  gmres_scr = NULL;
 
 }
 
@@ -110,6 +124,14 @@ G2D::~G2D(){
   if(vol)        HANDLE_ERROR( cudaFree(vol) );
   if(xc)         HANDLE_ERROR( cudaFree(xc) );
 
+  if(gmres_scr)  HANDLE_ERROR( cudaFree(gmres_scr));
+  if(gmres_r  )  HANDLE_ERROR( cudaFree(gmres_r  ));
+  if(gmres_Av )  HANDLE_ERROR( cudaFree(gmres_Av ));
+  if(gmres_v  )  HANDLE_ERROR( cudaFree(gmres_v  ));
+  if(gmres_h  )  delete[] gmres_h;
+  if(gmres_g  )  delete[] gmres_g;
+  if(gmres_giv)  delete[] gmres_giv;
+
   x[CPU]     = NULL;
   x[GPU]     = NULL;
   q[CPU]     = NULL;
@@ -126,6 +148,13 @@ G2D::~G2D(){
   mulam      = NULL;
   wrk        = NULL;
   xc         = NULL;
+
+  gmres_r   = NULL;
+  gmres_Av  = NULL;
+  gmres_h   = NULL;
+  gmres_g   = NULL;
+  gmres_v   = NULL;
+  gmres_giv = NULL;
 
   printf("# All CPU and GPU memory has been cleaned up.\n");
 

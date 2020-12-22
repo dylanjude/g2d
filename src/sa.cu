@@ -7,8 +7,8 @@
 #define CB1 0.1355
 #define CDES 0.65
 
-#define DBGJ 30
-#define DBGK 30
+#define DBGJ 110
+#define DBGK 8
 
 __device__ void fill_shared_sa(int jtot, int ktot, int nvar, double* q, double* mul, double* snul, double* snut, int pad){
 
@@ -167,11 +167,13 @@ __global__ void sa_conv_diff(int jtot, int ktot, int nvar, int nghost, double* q
   //
   // J-Direction
   //
-  midjac = 0.5*(jac + 1.0/vol[grid_idx_p1_j]);
+  // midjac = 0.5*(jac + 1.0/vol[grid_idx_p1_j]);
+  midjac = 1.0/(0.5*(vol[grid_idx] + vol[grid_idx_p1_j]));
   k_x_p_half = Sj[grid_idx_p1_j].x*midjac;
   k_y_p_half = Sj[grid_idx_p1_j].y*midjac;
 
-  midjac = 0.5*(jac + 1.0/vol[grid_idx_m1_j]);
+  // midjac = 0.5*(jac + 1.0/vol[grid_idx_m1_j]);
+  midjac = 1.0/(0.5*(vol[grid_idx] + vol[grid_idx_m1_j]));
   k_x_m_half = Sj[grid_idx_p1_j].x*midjac;
   k_y_m_half = Sj[grid_idx_p1_j].y*midjac;
 
@@ -207,11 +209,13 @@ __global__ void sa_conv_diff(int jtot, int ktot, int nvar, int nghost, double* q
   //
   // K-Direction 
   //
-  midjac = 0.5*(jac + 1.0/vol[grid_idx_p1_k]);
+  // midjac = 0.5*(jac + 1.0/vol[grid_idx_p1_k]);
+  midjac = 1.0/(0.5*(vol[grid_idx] + vol[grid_idx_p1_k]));
   k_x_p_half = Sk[grid_idx_p1_k].x*midjac;
   k_y_p_half = Sk[grid_idx_p1_k].y*midjac;
 
-  midjac = 0.5*(jac + 1.0/vol[grid_idx_m1_k]);
+  // midjac = 0.5*(jac + 1.0/vol[grid_idx_m1_k]);
+  midjac = 1.0/(0.5*(vol[grid_idx] + vol[grid_idx_m1_k]));
   k_x_m_half = Sk[grid_idx_p1_k].x*midjac;
   k_y_m_half = Sk[grid_idx_p1_k].y*midjac;
 
@@ -323,6 +327,7 @@ __global__ void sa_prod_dest(int jtot, int ktot, int nvar, int nghost, double* q
   double inv_dist_square  = 1.0/(d2);
   double temp_var         = inv_kappa_square*inv_dist_square;
   double S_tilda          = fmax(vorticity[grid_idx] + nu_turb*fv2*temp_var,0.3*vorticity[grid_idx]);
+  // double S_tilda          = vorticity[grid_idx] + nu_turb*fv2*temp_var;
   S_tilda                 = fmax(S_tilda, 1e-12);
   double Inv_S_tilda      = 1.0/(S_tilda);
   double r                = fmin(nu_turb*temp_var*Inv_S_tilda,10.0); 
@@ -356,6 +361,12 @@ __global__ void sa_prod_dest(int jtot, int ktot, int nvar, int nghost, double* q
   if(mode==0){
 
     // rhs[soln_idx+4] = (rhs[soln_idx+4] + (prod - dest))*vol[grid_idx];
+    double tk1 = fmax(nu_turb*(des_jacobian - pro_jacobian),0.0);
+    double tk2 = fmax(des - pro,0.0);
+
+    // if(j==DBGJ and k==DBGK){
+    //   printf("_sarhs0_ %16.8e %16.8e %16.8e\n", (prod - dest), tk1, tk2);
+    // }
 
     rhs[soln_idx+4] = rhs[soln_idx+4] + (prod - dest);
 
@@ -385,6 +396,152 @@ __global__ void sa_prod_dest(int jtot, int ktot, int nvar, int nghost, double* q
   }
 
 }
+
+#define cb1       0.1355
+#define sigma     0.66666666666666667
+#define cb2       0.622
+#define akt       0.41
+#define cw1       3.2390678
+#define cw2       0.3
+#define cw3       2.0
+#define cv1       7.1
+#define ct1       1.0
+#define ct2       2.0
+#define ct3       1.2
+#define ct4_orig  0.5
+#define ct4_coder 0.05
+#define Cdes      0.65
+#define fwstar    0.424
+#define rcv2      0.2
+#define d2min     1.e-12
+#define stilim    1.e-10
+#define rmax      10.0
+#define chilim    1.e-12
+#define fturf     0.0
+#define cappa2    akt*akt
+#define gammaeff  1.0
+
+template<int mode>
+__global__ void sa_source(int jtot, int ktot, int nvar, int nghost, double* q, double* rhs, double* LDU, double* mulam, 
+			  double* vorticity, double2* xy, double2* Sj, double2* Sk, double* vol, double* dt,
+			  double* machs, double* reys, int nM, int nAoa){
+
+  int j  = blockDim.x*blockIdx.x + threadIdx.x;
+  int k  = blockDim.y*blockIdx.y + threadIdx.y;
+  int im = blockIdx.z%nM;
+  int ir = blockIdx.z/(nM*nAoa);
+
+  double rey = reys[ir]/machs[im]; // reynolds number based on Mach
+
+  if(j > jtot-1-2*nghost or k > ktot-1-2*nghost) return;
+  j += nghost;
+  k += nghost;
+
+  double chi,fv1,fv2,fv3,ft2,dchi,dfv1,dfv2,dfv3;
+  double dft2,d2,stilda,r,g,fw,dstild,dr,dg,dfw,gtilde,ct4;
+  double pro,des,prod,dest,dpro,ddes,tk1,tk2,r5,g6,psi;
+
+  q     += (blockIdx.z*jtot*ktot)*nvar;
+  mulam += (blockIdx.z*jtot*ktot);
+  dt    += (blockIdx.z*jtot*ktot);
+
+  int grid_idx = j + k*jtot;
+  int soln_idx = grid_idx*(nvar);
+
+  double nu_lam  = mulam[grid_idx]/q[soln_idx];
+  double nu_turb = q[soln_idx+4];
+
+  double2 dxy    = 0.25*(xy[grid_idx] + xy[grid_idx+jtot] +
+			 xy[grid_idx+1] + xy[grid_idx+jtot+1])-0.5*(xy[j+nghost*jtot] + xy[j+1+nghost*jtot]);
+
+  if(mode==0){
+    rhs += (blockIdx.z*jtot*ktot)*nvar;
+  } else {
+    LDU += (blockIdx.z*jtot*ktot)*6;
+  }
+
+  chi=nu_turb/nu_lam;
+  chi=max(chi,chilim);
+  fv1  = (chi*chi*chi)/(chi*chi*chi+cv1*cv1*cv1);
+  fv2  = 1.0 - (chi/(1+fv1*chi));
+  ct4  = ct4_orig;
+  ft2  = 0.0;
+  dchi = 1./nu_lam;
+  if(chi == chilim) dchi = 0.0;
+  dfv1 =  (3.*cv1*cv1*cv1)*(chi*chi)*dchi*pow((1./(chi*chi*chi+cv1*cv1*cv1)),2);
+  dfv2 = -dchi/(1+fv1*chi)+chi*pow(1./(1+fv1*chi),2)*(dfv1*chi+dchi*fv1);
+  dft2 = (-2.0*ct4)*chi*dchi*ft2;
+
+  // d  = sqrt(dot(dxy,dxy));
+  d2 = max(dot(dxy,dxy),d2min); // dist squared
+
+  stilda = vorticity[grid_idx] + nu_lam/(d2*cappa2*rey)*chi*fv2;
+  // stilda = max(stilda,0.3*vorticity[grid_idx]);
+  stilda = max(stilda,stilim);
+  r=chi*nu_lam/(d2*cappa2*rey*stilda);
+  r=min(r,rmax);
+  if (r > 1e-8){
+    r5=pow(r,5);
+    g=r*(1.+cw2*(r5-1));
+    g6=pow(g,6);
+  } else {
+    r5=0.0;
+    g=r*(1.+cw2*(r5-1.));
+    g6=0.0;
+  }
+
+  fw=(1.+pow(cw3,6))/(g6+pow(cw3,6));
+  fw=g*(pow(fw,1./6.));
+
+  dstild = nu_lam*(dchi*fv2+chi*dfv2)/(d2*cappa2*rey);
+  if (stilda == stilim) dstild = 0.0;
+
+  dr = nu_lam*(dchi*stilda - chi*dstild)/(d2*cappa2*rey*stilda*stilda);
+  if (r == rmax) dr = 0.0;
+  dg=dr*(1.+cw2*(6.*r5-1.));
+  dfw = pow((1.+pow(cw3,6))/(g6+pow(cw3,6)),1./6.);
+  dfw =  dfw*dg*(1.- g6/(g6+pow(cw3,6)));
+
+  pro  = gammaeff*cb1*stilda*(1.-ft2);
+  des  = (cw1*fw-cb1/cappa2*ft2)/d2/rey;
+
+  prod = cb1*stilda*(1.-ft2)*nu_turb;
+  dest = (cw1*fw-cb1/cappa2*ft2)*nu_turb*nu_turb/d2/rey;
+
+  dpro = pro*dstild/stilda - cb1*stilda*dft2;
+
+  ddes = (cw1*dfw-cb1/cappa2*dft2)/d2/rey*nu_lam*chi;
+  ddes = ddes + des;
+  ddes = ddes*nu_turb;
+  dpro = dpro*nu_turb;
+  tk1=max(des*nu_turb-pro,0.0);
+  tk2=max(ddes-dpro,0.0);
+
+  if(mode==0){
+
+    rhs[soln_idx+4] = rhs[soln_idx+4] + (prod - dest);
+
+    // if(j==DBGJ and k==DBGK){
+    //   printf("_sarhs1_ %16.8e %16.8e %16.8e\n", (prod - dest), tk1, tk2);
+    // }
+
+  } else {
+
+    double D_turb = LDU[j+k*jtot+jtot*ktot] + LDU[j+k*jtot+4*jtot*ktot] - tk1 - tk2;
+
+    LDU[j + k*jtot +   jtot*ktot] = 1.0 - dt[grid_idx]*D_turb; // D_turb_j
+    LDU[j + k*jtot + 4*jtot*ktot] = 1.0 - dt[grid_idx]*D_turb; // D_turb_k
+
+    LDU[j + k*jtot              ] *= -dt[grid_idx];
+    LDU[j + k*jtot + 2*jtot*ktot] *= -dt[grid_idx];
+    LDU[j + k*jtot + 3*jtot*ktot] *= -dt[grid_idx];
+    LDU[j + k*jtot + 5*jtot*ktot] *= -dt[grid_idx];
+  }
+
+
+
+}
+
 
 
 template<int dir>
@@ -435,9 +592,11 @@ __global__ void limit_dnut(int pts, int nvar, double* s, double* q){
   double  nut = q[i*nvar+4];
   double dnut = s[i*nvar+4];
 
-  if(nut + dnut < 1e-10){
-    s[i*nvar+4] = 1e-10 - nut;
-  }
+  // if(nut + dnut < 1e-10){
+  //   s[i*nvar+4] = 1e-10 - nut;
+  // }
+
+  s[i*nvar+4] = max(dnut, 1e-10 - nut);
 
   // q[i*nvar+4] = nut + s[i*nvar+4];
 
@@ -539,9 +698,7 @@ void G2D::set_muturb(double* qtest){
   blk.x = (jtot-1)/thr.x+1;
   blk.y = (ktot-1)/thr.y+1;
   blk.z = nl;
-
   sa_muturb<<<blk,thr>>>(jtot,ktot,nvar,qtest,muturb,mulam);
-
 }
 
 void G2D::sa_rhs(double* qtest, double* stest){
@@ -573,7 +730,8 @@ void G2D::sa_rhs(double* qtest, double* stest){
   blk.y = (ktot-1-nghost*2)/thr.y+1;
   blk.z = nl;
 
-  sa_prod_dest<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,qtest,stest,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,machs[GPU],reys[GPU],nM,nAoa);
+  // sa_prod_dest<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,qtest,stest,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,machs[GPU],reys[GPU],nM,nAoa);
+  sa_source<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,qtest,stest,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,machs[GPU],reys[GPU],nM,nAoa);
 
   // this->sa_adi(stest);
 
@@ -620,9 +778,8 @@ void G2D::sa_adi(double* s){
 
   this->compute_vorticity(q[GPU],vort);
 
-  sa_prod_dest<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],s,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,machs[GPU],reys[GPU],nM,nAoa);
-
-  // debug_print(30,30,0,Dj,1);
+  // sa_prod_dest<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],s,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,machs[GPU],reys[GPU],nM,nAoa);
+  sa_source<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],s,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,machs[GPU],reys[GPU],nM,nAoa);
 
   restride_s<0><<<linblk,linthr>>>(jtot*ktot, nvar, s, ssa);
 

@@ -1,7 +1,7 @@
 #include "g2d.h"
 
 #define DBGJ 87
-#define DBGK 3
+#define DBGK 2
 
 #define EPSROE 1.0e-1
 
@@ -35,16 +35,16 @@ __global__ void roe_flux(int jtot, int ktot, int nvar, int nghost,
   double roe_wt_1 = sqrt(rho_l)/(sqrt(rho_l)+sqrt(rho_r));
   double roe_wt_2 = 1-roe_wt_1;
 
-  double u_l  = q_l[1]*inv_rho_l;
-  double u_r  = q_r[1]*inv_rho_r;
+  double u_l  = q_l[1];
+  double u_r  = q_r[1];
   double u_av = roe_wt_1*u_l + roe_wt_2*u_r;    
 
-  // if(dir==1 and j==DBGJ and k==DBGK){
-  //   printf("___roe___%d %d -- %24.16e %24.16e\n", j, k, u_l, u_r);
+  // if(dir==0 and j==DBGJ and k==DBGK){
+  //   printf("_roe_ %d %d -- %24.16e %24.16e %24.16e\n", j,k, q_l[1], inv_rho_l, u_l);
   // }
 
-  double v_l  = q_l[2]*inv_rho_l;
-  double v_r  = q_r[2]*inv_rho_r;
+  double v_l  = q_l[2];
+  double v_r  = q_r[2];
   double v_av = roe_wt_1*v_l + roe_wt_2*v_r;     
 
   double p_l  = q_l[3];
@@ -254,6 +254,7 @@ __global__ void add_iflux(int jtot, int ktot, int nvar, int nghost, double* s, d
   int stride = (dir==0)? 1 : jtot;
 
   s[v] -= (flx[stride*4+v] - flx[v])/vol[j+k*jtot];
+  // s[v] -= (flx[stride*4+v] - flx[v]);
 
 }
 
@@ -301,7 +302,5 @@ void G2D::inviscid_flux(double* q, double* s){
   if(order<5) muscl<1><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
   roe_flux<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,ql,qr,flx,Sk);
   add_iflux<1><<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx,vol);
-
-  // debug_print(87,3,0,flx,4);
 
 }

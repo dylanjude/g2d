@@ -57,6 +57,8 @@ void G2D::metrics(){
     Sk[j+k*jtot].x = -vec.y;
     Sk[j+k*jtot].y =  vec.x;
     vol[j+k*jtot]  = vol[j+(k-1)*jtot];
+
+    Sj[j+k*jtot] = Sj[j+(k-1)*jtot]; // copy inside value
   }
   j=jtot-1;
   for(k=0;k<ktot-1;k++){
@@ -68,11 +70,15 @@ void G2D::metrics(){
     Sj[j+k*jtot].x = -vec.y;
     Sj[j+k*jtot].y =  vec.x;
     vol[j+k*jtot]  = vol[j-1+k*jtot];
+
+    Sk[j+k*jtot] = Sk[j-jtot+2*nghost+k*jtot]; // copy wrap-around value
   }
 
   j=jtot-1;
   k=ktot-1;
   vol[j+k*jtot]  = vol[(j-1)+(k-1)*jtot];
+  Sk[j+k*jtot]   = Sk[j-jtot+2*nghost+k*jtot]; // copy wrap-around value
+  Sj[j+k*jtot]   = Sj[j+(k-1)*jtot];           // copy inside value
 
   double2 *tmp2;
   double  *tmp;

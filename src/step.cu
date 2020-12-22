@@ -60,51 +60,61 @@ __global__ void update_q(int jtot,int ktot,int nvar,int nghost, double* q, doubl
 
 void G2D::go(){
 
-  int nstep=2000;
+  int nstep=1000;
   int resmod=10;
-  if(nstep > 999){
-    resmod = 50;
-  } else if(nstep > 99){
-    resmod = 10;
-  } else {
-    resmod = 1;
-  }
+  // if(nstep > 9990){
+  //   resmod = 50;
+  // } else if(nstep > 99){
+  //   resmod = 10;
+  // } else {
+  //   resmod = 1;
+  // }
 
   int nl     = nM*nRey*nAoa;
   int qcount = nl*jtot*ktot*nvar;
 
-  dim3 thr(32,16,1);
+  dim3 thr(16,16,1);
   dim3 blk;
   blk.x = (jtot-1)/thr.x+1;
   blk.y = (ktot-1)/thr.y+1;
   blk.z = nl;
 
-  double cfl = 20.0;
+  double cfl0 =  20.0;
+  double cfl  = cfl0;
 
   for(istep=0; istep<nstep; istep++){
 
     HANDLE_ERROR( cudaMemcpy(qp, q[GPU], qcount*sizeof(double), cudaMemcpyDeviceToDevice) );
 
-    set_dt<<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],dt,vol,Sj,Sk,cfl);
-    
-    this->compute_rhs(q[GPU],s);
-
-    // debug_print(87,3,0,s,5);
-
-    // if(istep==nstep-1){
-    //   this->write_sols();
-    // }
-
-    if((istep+1) % resmod == 0){
-      this->check_convergence(istep+1, s);
+    // CFL Ramping (linear)
+    if(istep < 100){
+      cfl = 1.0 + (cfl0-1)*istep/100;
+    } else {
+      cfl = cfl0;
     }
 
-    this->precondition(s,s);
+    set_dt<<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],dt,vol,Sj,Sk,cfl);
+
+    this->compute_rhs(q[GPU],s);
+
+    if((istep+1) % resmod == 0){
+      this->check_convergence(s);
+    }
+
+    if(istep+1 == nstep){
+      this->write_sols();
+    }
+
+    // this->precondition(s,s);
+    this->gmres(s);
 
     update_q<<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],s);
 
+    if(this->resfile){
+      fclose(this->resfile);
+      this->resfile=NULL;
+    }
+
   }
-
-
 
 }
