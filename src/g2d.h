@@ -20,6 +20,8 @@
 #define LAMINAR   1
 #define TURBULENT 2
 
+#define SASCALE 0.01
+
 #include "gpu.h"
 #include "helper_math.h"
 #include "timer.h"

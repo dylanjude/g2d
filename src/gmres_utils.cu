@@ -150,7 +150,8 @@ __global__ void time_diag(double* res, double* dq, double* dt, int pts, int nvar
   int i   = blockDim.x * blockIdx.x + threadIdx.x;
   int l   = blockIdx.z;
   if(i<pts*nvar){ 
-    double idtau = 1.0/dt[i/nvar+l*pts];
+    double scale = (i%nvar==4)? SASCALE : 1.0;
+    double idtau = scale/dt[i/nvar+l*pts];
     res[i+l*pts*nvar] += dq[i+l*pts*nvar]*idtau;
   }
 

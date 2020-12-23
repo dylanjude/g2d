@@ -27,8 +27,8 @@ void G2D::write_sols(){
     return;
   }
   already_written=1;
-  HANDLE_ERROR( cudaMemcpy(q[CPU], s, qcount*sizeof(double), cudaMemcpyDeviceToHost) );
-  // HANDLE_ERROR( cudaMemcpy(q[CPU], q[GPU], qcount*sizeof(double), cudaMemcpyDeviceToHost) );
+  // HANDLE_ERROR( cudaMemcpy(q[CPU], s, qcount*sizeof(double), cudaMemcpyDeviceToHost) );
+  HANDLE_ERROR( cudaMemcpy(q[CPU], q[GPU], qcount*sizeof(double), cudaMemcpyDeviceToHost) );
 
   int nskip = max(nghost-SHOWFRINGE,0);
 

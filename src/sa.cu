@@ -10,6 +10,8 @@
 #define DBGJ 110
 #define DBGK 8
 
+
+
 __device__ void fill_shared_sa(int jtot, int ktot, int nvar, double* q, double* mul, double* snul, double* snut, int pad){
 
   int tot_threads = blockDim.x*blockDim.y*blockDim.z; 
@@ -519,7 +521,7 @@ __global__ void sa_source(int jtot, int ktot, int nvar, int nghost, double* q, d
 
   if(mode==0){
 
-    rhs[soln_idx+4] = rhs[soln_idx+4] + (prod - dest);
+    rhs[soln_idx+4] = (rhs[soln_idx+4] + (prod - dest))*SASCALE;
 
     // if(j==DBGJ and k==DBGK){
     //   printf("_sarhs1_ %16.8e %16.8e %16.8e\n", (prod - dest), tk1, tk2);
@@ -528,7 +530,7 @@ __global__ void sa_source(int jtot, int ktot, int nvar, int nghost, double* q, d
   } else {
 
     double D_turb = LDU[j+k*jtot+jtot*ktot] + LDU[j+k*jtot+4*jtot*ktot] - tk1 - tk2;
-
+    
     LDU[j + k*jtot +   jtot*ktot] = 1.0 - dt[grid_idx]*D_turb; // D_turb_j
     LDU[j + k*jtot + 4*jtot*ktot] = 1.0 - dt[grid_idx]*D_turb; // D_turb_k
 
@@ -554,7 +556,7 @@ __global__ void restride_s(int pts, int nvar, double* s, double* ssa){
 
   if(i<pts){
     if(dir==0){
-      ssa[i] = s[i*nvar+4];
+      ssa[i] = s[i*nvar+4]/SASCALE;
     } else {
       s[i*nvar+4] = ssa[i];
     }

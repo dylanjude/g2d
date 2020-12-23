@@ -17,7 +17,9 @@ __global__ void bdf(int jtot,int ktot,int nvar,int nghost, double* q, double* qp
 
   if(j+nghost>jtot-1 or k+nghost>ktot-1) return;
 
-  s[v] = s[v] - (q[v]-qp[v])/dt[0];
+  double scale = (v==4)? SASCALE : 1.0;
+
+  s[v] = s[v] - scale*(q[v]-qp[v])/dt[0];
   // s[v] = s[v]/vol[j+k*jtot];// - (q[v]-qp[v])/dt[0];
 
 }

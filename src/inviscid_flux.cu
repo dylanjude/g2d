@@ -3,6 +3,9 @@
 #define DBGJ 87
 #define DBGK 2
 
+// #define BORGES_WEIGHT
+// #define UPWIND_OPT 
+
 #define EPSROE 1.0e-1
 
 template<int dir>
@@ -220,6 +223,98 @@ __global__ void muscl(int jtot, int ktot, double* q, double* ql, double* qr){
 
 }
 
+//
+// Device Function to do the WENO interpolation
+//
+__device__ double weno_interpolation(double a,double b,double c,double d,double e)
+{
+  double thirteen_by_twelve = 13.0/12.0;
+  double one_sixth = 1.0/6.0; 
+  double epsw = 0.000001;
+
+  double tau;
+#ifdef BORGES_WEIGHT
+  epsw = 1.e-20;
+#endif
+
+#ifndef UPWIND_OPT
+  double a_minus_2b_plus_c  = a - 2.0*b + c;
+  double a_minus_4b_plus_3c = a - 4.0*b + 3.0*c; 
+  double b_minus_2c_plus_d  = b - 2.0*c + d;
+  double b_minus_d          = b - d;
+  double c_minus_2d_plus_e  = c - 2.0*d + e;
+  double c3_minus_4d_plus_e = 3.0*c - 4.0*d + e;
+
+  double dis0 = ( thirteen_by_twelve*a_minus_2b_plus_c*a_minus_2b_plus_c + 
+		  0.25*a_minus_4b_plus_3c*a_minus_4b_plus_3c + epsw );
+  double dis1 = 1.0/(thirteen_by_twelve*b_minus_2c_plus_d*b_minus_2c_plus_d + 
+		     0.25*b_minus_d*b_minus_d + epsw);
+  double dis2 = 1.0/(thirteen_by_twelve*c_minus_2d_plus_e*c_minus_2d_plus_e + 
+		     0.25*c3_minus_4d_plus_e*c3_minus_4d_plus_e + epsw);
+#endif
+
+#ifdef BORGES_WEIGHT
+  tau = fabs(dis2-dis0);
+  dis0 = 1.0/(1.0+pow((tau/dis0),2.0)); 
+  dis1 = (1.0+pow((tau*dis1),2.0)); 
+  dis2 = (1.0+pow((tau*dis2),2.0)); 
+#endif 
+
+#ifdef UPWIND_OPT
+  double w0 = 1.0;
+  double w1 = 1.0;
+  double w2 = 1.0;
+#else
+  double w0 = 1.0/(1.0 + 6.0*dis0*dis1 + 3.0*dis0*dis2);
+  double w1 = 6.0*dis0*dis1*w0;
+  double w2 = 1.0 - w0 - w1;
+#endif 
+
+  double weno = one_sixth*(w0*(2.0*a - 7.0*b + 11.0*c) + 
+			   w1*(-b + 5.0*c + 2.0*d)     + 
+			   w2*(2.0*c + 5.0*d - e)     );
+  return weno;
+}
+
+
+template<int dir>
+__global__ void weno5(int jtot, int ktot, double* q, double* ql, double* qr){
+
+  int j  = blockDim.x*blockIdx.x + threadIdx.x;
+  int k  = blockDim.y*blockIdx.y + threadIdx.y;
+  int v  = threadIdx.z;
+
+  if(j>jtot-1 or k>ktot-1) return;
+
+  q   += blockIdx.z*jtot*ktot*4; // this is primitive q
+  ql  += blockIdx.z*jtot*ktot*4;
+  qr  += blockIdx.z*jtot*ktot*4;
+
+  int idx, idx_m1, idx_p1, idx_m2, idx_p2, idx_m3;
+
+  idx = (j + k*jtot)*4+v;
+
+  if(dir == 0){
+    idx_m1 = idx    - 4*(j>0);
+    idx_m2 = idx_m1 - 4*(j>1);
+    idx_m3 = idx_m2 - 4*(j>2);
+    idx_p1 = idx    + 4*(j<jtot-2);
+    idx_p2 = idx_p1 + 4*(j<jtot-3);
+  }
+  if(dir == 1){
+    idx_m1 = idx    - jtot*4*(k>0);
+    idx_m2 = idx_m1 - jtot*4*(k>1);
+    idx_m3 = idx_m2 - jtot*4*(k>2);
+    idx_p1 = idx    + jtot*4*(k<ktot-2);
+    idx_p2 = idx_p1 + jtot*4*(k<ktot-3);
+  }
+
+  ql[idx] = weno_interpolation(q[idx_m3],q[idx_m2],q[idx_m1],q[idx],q[idx_p1]);
+  qr[idx] = weno_interpolation(q[idx_p2],q[idx_p1],q[idx],q[idx_m1],q[idx_m2]);
+
+}
+
+
 __global__ void to_prim(int jtot, int ktot, int nvar, double* q, double* qprim){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x;
@@ -293,6 +388,7 @@ void G2D::inviscid_flux(double* q, double* s){
   // J-Direction
   //
   if(order<5) muscl<0><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
+  else        weno5<0><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
   roe_flux<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,ql,qr,flx,Sj);
   add_iflux<0><<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx,vol);
 
@@ -300,6 +396,7 @@ void G2D::inviscid_flux(double* q, double* s){
   // K-Direction
   //
   if(order<5) muscl<1><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
+  else        weno5<1><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
   roe_flux<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,ql,qr,flx,Sk);
   add_iflux<1><<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx,vol);
 

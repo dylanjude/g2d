@@ -30,7 +30,7 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,doub
   printf("#\n");
 
   this->order  = order;
-  this->nghost = (order==5)? 3 : 2;
+  this->nghost = (order>3)? 3 : 2;
 
   this->nM         = nM;
   this->nRey       = nRey;
@@ -45,6 +45,7 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,double* machs,doub
   this->reys[CPU]  = reys;
 
   printf("#    CFD Dims : %d %d\n", this->jtot, this->ktot);
+  printf("#\n");
 
   this->gmres_nkrylov = 10;
   this->resfile = NULL;

@@ -79,7 +79,7 @@ void G2D::go(){
   blk.y = (ktot-1)/thr.y+1;
   blk.z = nl;
 
-  double cfl0 =  20.0;
+  double cfl0 =  100.0;
   double cfl  = cfl0;
 
   for(istep=0; istep<nstep; istep++){
@@ -99,10 +99,6 @@ void G2D::go(){
 
     if((istep+1) % resmod == 0){
       this->check_convergence(s);
-    }
-
-    if(istep+1 == nstep){
-      this->write_sols();
     }
 
     // this->precondition(s,s);

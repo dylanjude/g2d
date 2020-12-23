@@ -28,7 +28,7 @@ void G2D::gmres(double* rhs){
 
   int i,j,k;
 
-  gmres_nkrylov=10;
+  // gmres_nkrylov=10;
 
   int nvec = gmres_nkrylov;
 
