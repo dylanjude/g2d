@@ -19,14 +19,15 @@ __global__ void bdf(int jtot,int ktot,int nvar,int nghost, double* q, double* qp
 
   double scale = (v==4)? SASCALE : 1.0;
 
-  s[v] = s[v] - scale*(q[v]-qp[v])/dt[0];
+  if(gridDim.z==2)
+    s[v] = s[v]*(blockIdx.z==1);
+  // s[v] = s[v] - scale*(q[v]-qp[v])/dt[0];
   // s[v] = s[v]/vol[j+k*jtot];// - (q[v]-qp[v])/dt[0];
 
 }
 
 void G2D::compute_rhs(double* qtest, double* stest){
 
-  int nl     = nM*nRey*nAoa;
   int qcount = nl*jtot*ktot*nvar;
 
   dim3 vthr(32,4,nvar); // turb var already divided by volume

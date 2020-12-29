@@ -203,16 +203,12 @@ __device__ void solve_ptridiagonal(dadireal *a, dadireal* b, dadireal* c, dadire
 
 template<int dir>
 __global__ void compute_LDU(int jtot, int ktot, int nvar, double2* S, dadireal* L_DADI, dadireal* D_DADI, dadireal* U_DADI, 
-			    double* vol, double* dt_array, double* q, double* mulam, double* muturb, 
-			    double* machs, double* reys, int nM, int nAoa){
+			    double* vol, double* dt_array, double* q, double* mulam, double* muturb, double* reys){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x;
   int k  = blockDim.y*blockIdx.y + threadIdx.y;
-  int im = blockIdx.z%nM;
-  // int ia = (blockIdx.z/nM)%nAoa;
-  int ir = blockIdx.z/(nM*nAoa);
 
-  double rey = reys[ir]/machs[im]; // reynolds number based on Mach
+  double rey = reys[blockIdx.z];
   
   if(j > jtot-1-2*NFDADI or k > ktot-1-2*NFDADI) return;
 
@@ -503,7 +499,6 @@ __global__ void change_precision(double *dbl, dadireal *flt, int nvar, int dof4)
 
 void G2D::dadi(double *sout){
 
-  int nl     = nM*nRey*nAoa;
   int qcount = nl*jtot*ktot*nvar;
   int count4 = nl*jtot*ktot*4;
 
@@ -538,14 +533,14 @@ void G2D::dadi(double *sout){
   // J-Direction: XI
   triblocks.y = (ktot-2*NFDADI)/trithreads.y+1; // Tri-diag solver kernel dims
   invert_xi<<<blk,thr>>>(jtot,ktot,nvar,Sj,this->q[GPU],R_DADI);
-  compute_LDU<0><<<blk,thr>>>(jtot,ktot,nvar,Sj,L_DADI,D_DADI,U_DADI,vol,dt,q[GPU],mulam,muturb,machs[GPU],reys[GPU],nM,nAoa);
+  compute_LDU<0><<<blk,thr>>>(jtot,ktot,nvar,Sj,L_DADI,D_DADI,U_DADI,vol,dt,q[GPU],mulam,muturb,reys[GPU]);
   tridiag<0,0><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI );
 
   //
   // K-Direction: ETA
   triblocks.y = (jtot-2*NFDADI)/trithreads.y+1; // Tri-diag solver kernel dims				
   invert_xi_eta<<<blk,thr>>>(jtot,ktot,Sj,Sk,R_DADI);
-  compute_LDU<1><<<blk,thr>>>(jtot,ktot,nvar,Sk,L_DADI,D_DADI,U_DADI,vol,dt,q[GPU],mulam,muturb,machs[GPU],reys[GPU],nM,nAoa);
+  compute_LDU<1><<<blk,thr>>>(jtot,ktot,nvar,Sk,L_DADI,D_DADI,U_DADI,vol,dt,q[GPU],mulam,muturb,reys[GPU]);
 
   // for(int k=0;k<ktot;k++){
   //   debug_print(87,k,0,L_DADI,4);

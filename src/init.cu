@@ -1,17 +1,14 @@
 #include "g2d.h"
 #include "gpu.h"
 
-__global__ void init_flow(int jtot,int ktot,int nvar,int nM,int nAoa,int nRey,
-			  double* q, double* machs, double* aoas){
+__global__ void init_flow(int jtot,int ktot,int nvar, double* q, double* machs, double* aoas){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x;
   int k  = blockDim.y*blockIdx.y + threadIdx.y;
-  int im = blockIdx.z % nM;
-  int ia = (blockIdx.z/nM) % nAoa;
-  // int ir = (blockIdx.z/(nM*nAoa)) % nRey;
+  int l  = blockIdx.z;
 
-  double aoa  = aoas[ia];
-  double M    = machs[im];
+  double aoa  = aoas[l];
+  double M    = machs[l];
   double rinf = 1.0;
   double pinf = 1.0/GAMMA;
   double uinf = M*cos(aoa*PI/180);
@@ -32,7 +29,6 @@ void G2D::init(){
 
   int j,k,idx1, idx2, idx3;
 
-  int nl     = nM*nRey*nAoa;
   int qcount = nl*jtot*ktot*nvar;
 
   this->x[CPU] = new double2[jtot*ktot];
@@ -100,7 +96,7 @@ void G2D::init(){
   blk.y = (ktot-1)/thr.y+1;
   blk.z = nl;
 
-  init_flow<<<blk,thr>>>(jtot,ktot,nvar,nM,nAoa,nRey,q[GPU],machs[GPU],aoas[GPU]);
+  init_flow<<<blk,thr>>>(jtot,ktot,nvar,q[GPU],machs[GPU],aoas[GPU]);
 
   this->metrics();
 

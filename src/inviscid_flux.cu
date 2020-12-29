@@ -355,7 +355,6 @@ __global__ void add_iflux(int jtot, int ktot, int nvar, int nghost, double* s, d
 
 void G2D::inviscid_flux(double* q, double* s){
 
-  int nl        = nM*nRey*nAoa;
   int primcount = nl*jtot*ktot*4;
 
   int c=0;

@@ -186,22 +186,27 @@ __global__ void sa_vort_lls(int jtot, int ktot, int nvar, int nghost, double* q,
 
   }
 
-  // double vort = fabs(dvdx-dudy); // simplifying sqrt(2*(1/2)*(dvdx-dydy)**2)
-  double vort = sqrt(0.5*(dvdx-dudy)*(dvdx-dudy)); // simplifying sqrt(2*((1/2)*(dvdx-dydy))**2)?
+  double vort = fabs(dvdx-dudy); 
+  // double vort = sqrt(0.5*(dvdx-dudy)*(dvdx-dudy)); // simplifying sqrt(2*((1/2)*(dvdx-dydy))**2)?
 
   // vorticity[grid_idx] = vort; // plain vorticity for regular SA model
   // return;
 
-  // double grad_av = (dudx + dvdy)/3.0; // set to 3.0 to match 3D Garfield
-  // double S_xx    = dudx - grad_av; 
-  // double S_yy    = dvdy - grad_av;
+  double grad_av = (dudx + dvdy)/3.0; // set to 3.0 to match 3D Garfield
+  double S_xx    = dudx - grad_av; 
+  double S_yy    = dvdy - grad_av;
+  double S_xy    = dudy + dvdx;
+  double strain  = sqrt(2.0*(S_xx*S_xx + S_yy*S_yy) + S_xy*S_xy);
+
+  // double S_xx    = dudx;// - grad_av; 
+  // double S_yy    = dvdy;// - grad_av;
   // double S_xy    = dudy + dvdx;
   // double strain  = sqrt(2.0*(S_xx*S_xx + S_yy*S_yy) + S_xy*S_xy);
 
-  double S_xx    = dudx; 
-  double S_yy    = dvdy;
-  double S_xy    = (dudy + dvdx)*0.5;
-  double strain  = sqrt(2.0*S_xx*S_xx + 2.0*S_yy*S_yy + 2.0*S_xy*S_xy);
+  // double S_xx    = dudx; 
+  // double S_yy    = dvdy;
+  // double S_xy    = (dudy + dvdx)*0.5;
+  // double strain  = sqrt(2.0*S_xx*S_xx + 2.0*S_yy*S_yy + 2.0*S_xy*S_xy);
 
   // Dylan: In some weird cases, vort and strain are small (~1e-28)
   // but (strain-vort) < 0. This leads to negative vorticity and
@@ -214,9 +219,6 @@ __global__ void sa_vort_lls(int jtot, int ktot, int nvar, int nghost, double* q,
 
 
 void G2D::compute_vorticity(double* qtest, double* vort){
-
-  int nl    = nM*nRey*nAoa;
-  // int count = nl*jtot*ktot;
 
   dim3 thr(16,16,1);
   dim3 blk;

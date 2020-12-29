@@ -18,7 +18,6 @@ __global__ void times_dt(int jtot,int ktot,int nvar,int nghost,double* s, double
 
 void G2D::precondition(double* sin, double* sout){
 
-  int nl     = nM*nRey*nAoa;
   int qcount = nl*jtot*ktot*nvar;
   int count4 = nl*jtot*ktot*4;
 

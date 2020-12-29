@@ -164,8 +164,7 @@ __global__ void bc_zero(int jtot,int ktot,int nvar,int nghost,double* s){
 }
 
 template<int face>
-__global__ void bc_ramp(int jtot,int ktot,int nvar,int nghost,int nM,int nAoa,
-			double* q,double* machs, double* aoas, double ratio){
+__global__ void bc_ramp(int jtot,int ktot,int nvar,int nghost, double* q,double* machs, double* aoas, double ratio){
   int j,k;
   if(face == KMIN_FACE){
     j  = blockDim.x*blockIdx.x + threadIdx.x;
@@ -175,15 +174,14 @@ __global__ void bc_ramp(int jtot,int ktot,int nvar,int nghost,int nM,int nAoa,
     return;
   }
 
-  int im = blockIdx.z % nM;
-  int ia = (blockIdx.z/nM) % nAoa;
+  int l = blockIdx.z;
 
   if(j>jtot-1 or k>ktot-1) return;
 
   q += j*nvar + k*jtot*nvar + blockIdx.z*jtot*ktot*nvar;
 
-  double aoa  = aoas[ia];
-  double M    = machs[im];
+  double aoa  = aoas[l];
+  double M    = machs[l];
   double q0 = 1.0;
   double q1 = M*cos(aoa*PI/180);
   double q2 = M*sin(aoa*PI/180);
@@ -203,8 +201,6 @@ __global__ void bc_ramp(int jtot,int ktot,int nvar,int nghost,int nM,int nAoa,
 }
 
 void G2D::apply_bc(int istep, double* qtest){
-
-  int nl     = nM*nRey*nAoa;
 
   dim3 thr(32,nghost,nvar);
   dim3 blkj(1,1,nl), blkk(1,1,nl);
@@ -227,7 +223,7 @@ void G2D::apply_bc(int istep, double* qtest){
   if(istep < 30){
     ratio = ( istep*1.0 )/( 30.0 );                                                                                            
     ratio = (10.0 - 15.0*ratio + 6.0*ratio*ratio)*ratio*ratio*ratio; 
-    bc_ramp<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,nM,nAoa,qtest,machs[GPU],aoas[GPU],ratio);
+    bc_ramp<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,qtest,machs[GPU],aoas[GPU],ratio);
   }
 
   bc_far<KMAX_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,qtest,Sk);
@@ -235,8 +231,6 @@ void G2D::apply_bc(int istep, double* qtest){
 }
 
 void G2D::zero_bc(double* s){
-
-  int nl     = nM*nRey*nAoa;
 
   dim3 thr(16,nghost*2,nvar);
   dim3 blkj(1,1,nl), blkk(1,1,nl);

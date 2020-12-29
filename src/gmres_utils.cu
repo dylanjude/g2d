@@ -14,8 +14,6 @@ __global__ void do_axpy(double* a, double* x, double* y, double* out, int tot){
 
 void G2D::axpy(double* a, double* x, double* y, double* out){
 
-  int nl     = nM*nRey*nAoa;
-
   double* a_gpu = wrk;
 
   HANDLE_ERROR( cudaMemcpy(a_gpu, a, nl*sizeof(double), cudaMemcpyHostToDevice) );
@@ -87,7 +85,6 @@ __global__ void vec_mult(int jtot, int ktot, int nvar, int nghost, double* a, do
 
 void G2D::vdp(double* a, double* b, double* out){
 
-  int nl = nM*nRey*nAoa;
   int i, leftover, smem;
   int j, k, l, v;
 
@@ -160,7 +157,6 @@ __global__ void time_diag(double* res, double* dq, double* dt, int pts, int nvar
 
 void G2D::mvp(double* dq, double* res){
 
-  int nl     = nM*nRey*nAoa;
   dim3 thr(256,1,1);
   dim3 blk(1,1,nl);
   blk.x = (jtot*ktot*nvar-1)/thr.x+1;

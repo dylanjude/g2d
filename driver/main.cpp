@@ -100,6 +100,10 @@ int main(int argc, char** argv){
     }
   }
 
+  size_t suffix = inputs["airfoil"].find('.');
+  if(suffix < 0) suffix = inputs["airfoil"].size();
+  string foilname = inputs["airfoil"].substr(0,suffix);
+
   if(inputs["eqns"].compare("euler")==0){
     eqns = EULER;
   } else if(inputs["eqns"].compare("laminar")==0){
@@ -108,7 +112,7 @@ int main(int argc, char** argv){
     eqns = TURBULENT;
   }
 
-  G2D solver(nM,nRey,nAoA,jtot,ktot,order,machs,reys,aoas,xy,eqns);
+  G2D solver(nM,nRey,nAoA,jtot,ktot,order,machs,reys,aoas,xy,eqns,foilname);
 
   solver.init();
 

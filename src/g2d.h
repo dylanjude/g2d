@@ -22,16 +22,19 @@
 
 #define SASCALE 0.01
 
+#define AVG_HIST 20
+
 #include "gpu.h"
 #include "helper_math.h"
 #include "timer.h"
 
 class G2D {
 
-  int nM,nRey,nAoa;
+  int nM,nRey,nAoa,nl;
   double* machs[2];
   double* reys[2];
   double* aoas[2];
+  double* lreys[2];
 
   int order, nghost, nvar;
   int jtot,ktot;
@@ -49,10 +52,18 @@ class G2D {
 
   double *xi, *eta;
 
-  FILE* resfile;
+  FILE** resfile;
+
+  std::string* res_fname;
+  std::string* forces_fname;
+  std::string* cpcf_fname;
+  std::string* sol_fname;
+
+  double *res0, *res;
+  double *fhist; // force history
 
   int eqns;
-  int istep;
+  int istep, iforce;
 
   int debug_flag;
 
@@ -70,7 +81,10 @@ class G2D {
   void precondition(double* sin, double* sout);
   void gmres(double* s);
   void dadi(double* s);
-  void check_convergence(double* s);
+  void check_convergence();
+  void check_forces();
+  void write_cpcf();
+  void compute_residual(double* s, int isub);
 
   void vdp(double* a, double* b, double* out);
   void mvp(double* a, double* b);
@@ -86,8 +100,11 @@ class G2D {
 
   void debug_print(int j, int k, int l, double* v, int nvar);
 
+  void take_steps(int ns, int nsub, double cfl);
+
  public:
-  G2D(int nM,int nR,int nAoA,int jtot,int ktot, int order, double* machs,double* reys,double* aoas,double* xy,int eqns);
+  G2D(int nM,int nR,int nAoA,int jtot,int ktot, int order, double* machs,double* reys,double* aoas,
+      double* xy,int eqns,std::string aname);
   ~G2D();
   void init();
   void go();

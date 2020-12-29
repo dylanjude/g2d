@@ -55,18 +55,14 @@ __device__ void fill_shared_vf(int jtot, int ktot, int nvar, double* qs, double*
 
 __global__ void compute_viscous_flux(int jtot, int ktot, int nvar, int nghost, double* q, double* rhs, 
 				     double2* Sj, double2* Sk, double* vol, double* flx_x, double* flx_y, 
-				     double* mulam, double* muturb,
-				     double* machs, double* reys, int nM, int nAoa){
+				     double* mulam, double* muturb,double* reys){
 
   extern __shared__ double qs[];
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x;
   int k  = blockDim.y*blockIdx.y + threadIdx.y;
-  int im = blockIdx.z%nM;
-  // int ia = (blockIdx.z/nM)%nAoa;
-  int ir = blockIdx.z/(nM*nAoa);
 
-  double rey = reys[ir]/machs[im]; // reynolds number based on Mach
+  double rey = reys[blockIdx.z];
 
   int in_range = (j >= nghost and j+nghost <= jtot and k >= nghost and k+nghost <= ktot);
 
@@ -287,7 +283,6 @@ __global__ void add_vflux(int jtot, int ktot, int nvar, int nghost, double* s, d
 }
 
 void G2D::set_mulam(double* q){
-  int nl        = nM*nRey*nAoa;
   dim3 thr(16,16,1);
   dim3 blk(1,1,nl);
   blk.x     = (jtot-1)/thr.x+1; 
@@ -297,7 +292,6 @@ void G2D::set_mulam(double* q){
 
 void G2D::viscous_flux(double* q, double* s){
 
-  int nl        = nM*nRey*nAoa;
   int count     = nl*jtot*ktot;
 
   int c=0;
@@ -313,7 +307,7 @@ void G2D::viscous_flux(double* q, double* s){
 
   // mulam and muturb should previously already been calculated
 
-  compute_viscous_flux<<<blk,thr,mem>>>(jtot,ktot,nvar,nghost,q,s,Sj,Sk,vol,flx_x,flx_y,mulam,muturb,machs[GPU],reys[GPU],nM,nAoa);
+  compute_viscous_flux<<<blk,thr,mem>>>(jtot,ktot,nvar,nghost,q,s,Sj,Sk,vol,flx_x,flx_y,mulam,muturb,reys[GPU]);
 
   // debug_print(87,2,0,flx_x,3);
   // debug_print(87,2,0,flx_y,3);

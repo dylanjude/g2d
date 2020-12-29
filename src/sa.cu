@@ -10,8 +10,6 @@
 #define DBGJ 110
 #define DBGK 8
 
-
-
 __device__ void fill_shared_sa(int jtot, int ktot, int nvar, double* q, double* mul, double* snul, double* snut, int pad){
 
   int tot_threads = blockDim.x*blockDim.y*blockDim.z; 
@@ -54,20 +52,17 @@ __device__ void fill_shared_sa(int jtot, int ktot, int nvar, double* q, double* 
 
 template<int mode>
 __global__ void sa_conv_diff(int jtot, int ktot, int nvar, int nghost, double* q, double* rhs, double* LDU, double* mulam, 
-			     double2* Sj, double2* Sk, double* vol,
-			     double* machs, double* reys, int nM, int nAoa){
+			     double2* Sj, double2* Sk, double* vol,double* reys){
 
   extern __shared__ double smem[];
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x;
   int k  = blockDim.y*blockIdx.y + threadIdx.y;
-  int im = blockIdx.z%nM;
-  int ir = blockIdx.z/(nM*nAoa);
 
   double *snul = &smem[0];
   double *snut = &smem[(blockDim.x+2)*(blockDim.y+2)];
 
-  double rey = reys[ir]/machs[im]; // reynolds number based on Mach
+  double rey = reys[blockIdx.z];
 
   int in_range = (j >= nghost and j+nghost < jtot and k >= nghost and k+nghost <= ktot);
 
@@ -269,15 +264,12 @@ __global__ void sa_conv_diff(int jtot, int ktot, int nvar, int nghost, double* q
 
 template<int mode>
 __global__ void sa_prod_dest(int jtot, int ktot, int nvar, int nghost, double* q, double* rhs, double* LDU, double* mulam, 
-			     double* vorticity, double2* xy, double2* Sj, double2* Sk, double* vol, double* dt,
-			     double* machs, double* reys, int nM, int nAoa){
+			     double* vorticity, double2* xy, double2* Sj, double2* Sk, double* vol, double* dt, double* reys){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x;
   int k  = blockDim.y*blockIdx.y + threadIdx.y;
-  int im = blockIdx.z%nM;
-  int ir = blockIdx.z/(nM*nAoa);
 
-  double rey = reys[ir]/machs[im]; // reynolds number based on Mach
+  double rey = reys[blockIdx.z];
 
   if(j > jtot-1-2*nghost or k > ktot-1-2*nghost) return;
   j += nghost;
@@ -370,7 +362,7 @@ __global__ void sa_prod_dest(int jtot, int ktot, int nvar, int nghost, double* q
     //   printf("_sarhs0_ %16.8e %16.8e %16.8e\n", (prod - dest), tk1, tk2);
     // }
 
-    rhs[soln_idx+4] = rhs[soln_idx+4] + (prod - dest);
+    rhs[soln_idx+4] = (rhs[soln_idx+4] + (prod - dest))*SASCALE;
 
     // rhs[soln_idx+4] = (rhs[soln_idx+4] + (prod - dest))*dt[grid_idx];
 
@@ -425,15 +417,12 @@ __global__ void sa_prod_dest(int jtot, int ktot, int nvar, int nghost, double* q
 
 template<int mode>
 __global__ void sa_source(int jtot, int ktot, int nvar, int nghost, double* q, double* rhs, double* LDU, double* mulam, 
-			  double* vorticity, double2* xy, double2* Sj, double2* Sk, double* vol, double* dt,
-			  double* machs, double* reys, int nM, int nAoa){
+			  double* vorticity, double2* xy, double2* Sj, double2* Sk, double* vol, double* dt, double* reys){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x;
   int k  = blockDim.y*blockIdx.y + threadIdx.y;
-  int im = blockIdx.z%nM;
-  int ir = blockIdx.z/(nM*nAoa);
 
-  double rey = reys[ir]/machs[im]; // reynolds number based on Mach
+  double rey = reys[blockIdx.z];
 
   if(j > jtot-1-2*nghost or k > ktot-1-2*nghost) return;
   j += nghost;
@@ -443,9 +432,10 @@ __global__ void sa_source(int jtot, int ktot, int nvar, int nghost, double* q, d
   double dft2,d2,stilda,r,g,fw,dstild,dr,dg,dfw,gtilde,ct4;
   double pro,des,prod,dest,dpro,ddes,tk1,tk2,r5,g6,psi;
 
-  q     += (blockIdx.z*jtot*ktot)*nvar;
-  mulam += (blockIdx.z*jtot*ktot);
-  dt    += (blockIdx.z*jtot*ktot);
+  q         += (blockIdx.z*jtot*ktot)*nvar;
+  mulam     += (blockIdx.z*jtot*ktot);
+  dt        += (blockIdx.z*jtot*ktot);
+  vorticity += (blockIdx.z*jtot*ktot);
 
   int grid_idx = j + k*jtot;
   int soln_idx = grid_idx*(nvar);
@@ -478,8 +468,8 @@ __global__ void sa_source(int jtot, int ktot, int nvar, int nghost, double* q, d
   d2 = max(dot(dxy,dxy),d2min); // dist squared
 
   stilda = vorticity[grid_idx] + nu_lam/(d2*cappa2*rey)*chi*fv2;
-  // stilda = max(stilda,0.3*vorticity[grid_idx]);
-  stilda = max(stilda,stilim);
+  stilda = max(stilda,0.3*vorticity[grid_idx]);
+  // stilda = max(stilda,stilim);
   r=chi*nu_lam/(d2*cappa2*rey*stilda);
   r=min(r,rmax);
   if (r > 1e-8){
@@ -694,7 +684,6 @@ __global__ void sa_muturb(int jtot, int ktot, int nvar, double* q, double* mutur
 
 
 void G2D::set_muturb(double* qtest){
-  int nl        = nM*nRey*nAoa;
   dim3 thr(16,16,1);
   dim3 blk;
   blk.x = (jtot-1)/thr.x+1;
@@ -705,7 +694,6 @@ void G2D::set_muturb(double* qtest){
 
 void G2D::sa_rhs(double* qtest, double* stest){
 
-  int nl     = nM*nRey*nAoa;
   // int qcount = nl*jtot*ktot*nvar;
   int count = nl*jtot*ktot;
 
@@ -725,15 +713,15 @@ void G2D::sa_rhs(double* qtest, double* stest){
   // mulam and muturb should already have been set before this is called
   this->compute_vorticity(qtest, vort);
 
-  sa_conv_diff<0><<<blk,thr,mem>>>(jtot,ktot,nvar,nghost,qtest,stest,LDU,mulam,Sj,Sk,vol,machs[GPU],reys[GPU],nM,nAoa);
+  sa_conv_diff<0><<<blk,thr,mem>>>(jtot,ktot,nvar,nghost,qtest,stest,LDU,mulam,Sj,Sk,vol,reys[GPU]);
 
   // for production / destruction we only do interior points
   blk.x = (jtot-1-nghost*2)/thr.x+1;
   blk.y = (ktot-1-nghost*2)/thr.y+1;
   blk.z = nl;
 
-  // sa_prod_dest<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,qtest,stest,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,machs[GPU],reys[GPU],nM,nAoa);
-  sa_source<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,qtest,stest,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,machs[GPU],reys[GPU],nM,nAoa);
+  // sa_prod_dest<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,qtest,stest,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,reys[GPU]);
+  sa_source<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,qtest,stest,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,reys[GPU]);
 
   // this->sa_adi(stest);
 
@@ -741,7 +729,6 @@ void G2D::sa_rhs(double* qtest, double* stest){
 
 void G2D::sa_adi(double* s){
 
-  int nl     = nM*nRey*nAoa;
   // int qcount = nl*jtot*ktot*nvar;
   int count = nl*jtot*ktot;
 
@@ -771,7 +758,7 @@ void G2D::sa_adi(double* s){
 
   size_t mem = (thr.x+2) * (thr.y+2) * 2 * sizeof(double);
 
-  sa_conv_diff<1><<<blk,thr,mem>>>(jtot,ktot,nvar,nghost,q[GPU],s,LDU,mulam,Sj,Sk,vol,machs[GPU],reys[GPU],nM,nAoa);
+  sa_conv_diff<1><<<blk,thr,mem>>>(jtot,ktot,nvar,nghost,q[GPU],s,LDU,mulam,Sj,Sk,vol,reys[GPU]);
 
   // for vorticity and production/diffusion we only do the interior points
   blk.x = (jtot-1-nghost*2)/thr.x+1;
@@ -780,8 +767,8 @@ void G2D::sa_adi(double* s){
 
   this->compute_vorticity(q[GPU],vort);
 
-  // sa_prod_dest<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],s,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,machs[GPU],reys[GPU],nM,nAoa);
-  sa_source<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],s,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,machs[GPU],reys[GPU],nM,nAoa);
+  // sa_prod_dest<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],s,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,reys[GPU]);
+  sa_source<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],s,LDU,mulam,vort,x[GPU],Sj,Sk,vol,dt,reys[GPU]);
 
   restride_s<0><<<linblk,linthr>>>(jtot*ktot, nvar, s, ssa);
 

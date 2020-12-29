@@ -60,17 +60,20 @@ __global__ void update_q(int jtot,int ktot,int nvar,int nghost, double* q, doubl
 
 void G2D::go(){
 
-  int nstep=1000;
-  int resmod=10;
-  // if(nstep > 9990){
-  //   resmod = 50;
-  // } else if(nstep > 99){
-  //   resmod = 10;
-  // } else {
-  //   resmod = 1;
-  // }
+  double cfl = 100.0;
 
-  int nl     = nM*nRey*nAoa;
+  this->take_steps(100,1,cfl);
+  this->take_steps(100,1,cfl);
+  this->take_steps(100,1,cfl);
+  this->take_steps(100,1,cfl);
+
+}
+
+
+void G2D::take_steps(int nstep, int nsub, double cfl0){
+
+  int checkmod=10;
+
   int qcount = nl*jtot*ktot*nvar;
 
   dim3 thr(16,16,1);
@@ -79,10 +82,13 @@ void G2D::go(){
   blk.y = (ktot-1)/thr.y+1;
   blk.z = nl;
 
-  double cfl0 =  100.0;
   double cfl  = cfl0;
 
-  for(istep=0; istep<nstep; istep++){
+  bool check;
+
+  int nl0 = nM*nAoa*nRey;
+
+  for(int i=0; i<nstep && istep<1000000 && nl>0; i++){
 
     HANDLE_ERROR( cudaMemcpy(qp, q[GPU], qcount*sizeof(double), cudaMemcpyDeviceToDevice) );
 
@@ -93,24 +99,52 @@ void G2D::go(){
       cfl = cfl0;
     }
 
+    check = ((i+1) % checkmod == 0);
+
     set_dt<<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],dt,vol,Sj,Sk,cfl);
 
-    this->compute_rhs(q[GPU],s);
+    for(int isub=0; isub<nsub; isub++){
 
-    if((istep+1) % resmod == 0){
-      this->check_convergence(s);
+      this->istep++; // increment global step count
+
+      this->compute_rhs(q[GPU],s);
+
+      if(check){
+	this->compute_residual(s, isub);
+      }
+
+      // this->precondition(s,s);
+      this->gmres(s);
+
+      update_q<<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],s);
+
     }
 
-    // this->precondition(s,s);
-    this->gmres(s);
+    if(check){
 
-    update_q<<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],s);
+      printf("Iteration %6d : running %4d conditions (%4d complete)\n", istep, nl, nl0-nl);
 
-    if(this->resfile){
-      fclose(this->resfile);
-      this->resfile=NULL;
+      // monitor forces
+      this->check_forces();
+
+      // close the residual files (after gmres runs, since gmres also prints to that file)
+      for(int l=0; l<nl; l++){
+	if(this->resfile[l]){
+	  fclose(this->resfile[l]);
+	  this->resfile[l]=NULL;
+	}
+      }
+
     }
 
+    // done timestep loop
   }
+
+  this->write_cpcf();
+  this->write_sols();
+
+  // monitor convergence
+  this->check_convergence();
+
 
 }

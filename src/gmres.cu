@@ -1,5 +1,6 @@
 #include "g2d.h"
 
+// #define PRINT_STDIO
 
 __global__ void update_dbg(int jtot,int ktot,int nvar,int nghost, double* q, double* s){
 
@@ -20,7 +21,6 @@ __global__ void update_dbg(int jtot,int ktot,int nvar,int nghost, double* q, dou
 
 void G2D::gmres(double* rhs){
 
-  int nl     = nM*nRey*nAoa;
   int alldof = jtot*ktot*nl*nvar;
   int dof    = jtot*ktot*nvar;
 
@@ -28,7 +28,7 @@ void G2D::gmres(double* rhs){
 
   int i,j,k;
 
-  // gmres_nkrylov=10;
+  // gmres_nkrylov=1;
 
   int nvec = gmres_nkrylov;
 
@@ -134,10 +134,12 @@ void G2D::gmres(double* rhs){
 
       norm[l] = fabs(g[(j+1)*nl+l]);
 
-      if(resfile){
+      if(resfile[l]){
 	double elapsed = timer.peek();
-	printf("# %6d %2d %3d %16s %16s %16.8e\n", istep+1, j+1, l,  "-",  "-", norm[l]);
-	fprintf(resfile, "%6d %2d %3d %16s %16s %16.8e %14.6e\n", istep+1, j+1, l,  "-1",  "-1", norm[l], elapsed);
+#ifdef PRINT_STDIO
+	printf("# %6d %2d %16s %16s %16.8e\n", istep, j+1,  "-",  "-", norm[l]);
+#endif
+	fprintf(resfile[l], "%6d %2d %16s %16s %16.8e %14.6e\n", istep, j+1,  "-1",  "-1", norm[l], elapsed);
       }
     }
 
@@ -173,7 +175,7 @@ void G2D::gmres(double* rhs){
   // printf("check norm: %24.16e\n", norm[0]);
   // //
 
-  this->precondition(r, rhs);
+  this->precondition(r, rhs);  
 
   delete[] norm;
   delete[] residual;

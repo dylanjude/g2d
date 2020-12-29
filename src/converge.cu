@@ -2,306 +2,123 @@
 #include <cstdio>
 #include <cstdlib>
 
-#define GROUP_MEANFLOW
+#define BIG   1e100
 
-template<int group>
-__global__ void reorder_and_square(int jtot, int ktot, int nvar, int nghost, double* s, double* wrk){
-
-  int j  = blockDim.x*blockIdx.x + threadIdx.x;
-  int k  = blockDim.y*blockIdx.y + threadIdx.y;
-  int v  = threadIdx.z;
-
-  int lin_idx;
-
-#ifdef GROUP_MEANFLOW
-  lin_idx = (j + 
-             k*(jtot-nghost*2) + 
-	     v*(jtot-nghost*2)*(ktot-nghost*2) +
-	     blockIdx.z*2*(jtot-nghost*2)*(ktot-nghost*2));
-#else
-  lin_idx = (j + 
-	     k*(jtot-nghost*2) + 
-	     v*(jtot-nghost*2)*(ktot-nghost*2) +
-	     blockIdx.z*nvar*(jtot-nghost*2)*(ktot-nghost*2));
-#endif
-
-  j += nghost;
-  k += nghost;
-
-  if(j+nghost > jtot-1 or k+nghost > ktot-1) return;
-
-  s += (j + k*jtot + blockIdx.z*jtot*ktot)*nvar;
-
-  if(group){
-    double sum=0;
-    if(v==0){
-      for(int vv=0; vv<nvar-1; vv++){
-	sum += s[vv]*s[vv];
-      }
-    } else {
-      sum = s[nvar-1]*s[nvar-1];
-    }
-    wrk[lin_idx] = sum;
-  } else {
-    wrk[lin_idx] = s[v]*s[v];  
-  }
-
-}
-
-__global__ void reorder_no_square(int jtot, int ktot, int nvar, int nghost, double* s, double* wrk){
-
-  int j  = blockDim.x*blockIdx.x + threadIdx.x;
-  int k  = blockDim.y*blockIdx.y + threadIdx.y;
-  int v  = threadIdx.z;
-
-  int lin_idx;
-
-  lin_idx = (j + 
-	     k*(jtot-nghost*2) + 
-	     v*(jtot-nghost*2)*(ktot-nghost*2) +
-	     blockIdx.z*nvar*(jtot-nghost*2)*(ktot-nghost*2));
-
-  j += nghost;
-  k += nghost;
-
-  if(j+nghost > jtot-1 or k+nghost > ktot-1) return;
-
-  s += (j + k*jtot + blockIdx.z*jtot*ktot)*nvar;
-
-  wrk[lin_idx] = s[v];  
-
+__global__ void shift_q(double* q_old, double* q_new, int tot, int* lmap){
+  int i    = blockDim.x * blockIdx.x + threadIdx.x;
+  int lnew = blockIdx.z;
+  int lold = lmap[lnew];
+  if(i<tot) q_new[i+lnew*tot] = q_old[i+lold*tot];
 }
 
 
-__global__ void eachsum(double* a, int n, double* b){
-  
-  extern __shared__ double ish1[];
-  int tid = threadIdx.x;
-  int i = blockDim.x * blockIdx.x + threadIdx.x;
-  int v = blockIdx.y;
-  int l = blockIdx.z;
+void G2D::check_convergence(){
 
-  // initially there are n values between each variable on each grid
-  if(i<n){
-    ish1[tid] = a[i + v*n + l*n*gridDim.y]; // gridDim.y is nvar
-  } else {
-    ish1[tid] = 0;
-  }
+  int l;
+  bool* done = new bool[nl];
 
-  __syncthreads();
+  double drop;
 
-  // initial increment is half the block dimension,
-  // then 1/4, 1/8 etc. ">>" is a shift operator for
-  // fast binary operations. >>1 shifts by 1 bit is
-  // equivalent to a divide by two.
-  for(int s=blockDim.x/2; s>0; s>>=1){
-    if(tid < s){
-      ish1[tid] += ish1[tid+s];
+  double fmin, fmax, fvary;
+
+  double eps=1e-16;
+
+  for(l=0; l<nl; l++){ 
+    // assume we're not done
+    done[l] = false;
+
+    drop = log10(res0[l]/res[l]);
+
+    fmin =  BIG;
+    fmax = -BIG;
+    for(int i=0; i<AVG_HIST; i++){
+      fmin = std::min(fmin, fhist[l*AVG_HIST+i]);
+      fmax = std::max(fmax, fhist[l*AVG_HIST+i]);
     }
-    __syncthreads();
-  }
+    fvary = 200*(fmax-fmin)/(fmax+fmin+eps);
 
-  // the next "n" will be the number of blocks we have in the x-direction, gridDim.x
-  if(tid == 0){ 
-    b[blockIdx.x + v*gridDim.x + l*gridDim.x*gridDim.y] = ish1[0];
-  } 
+    // printf("# CASE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, drop=%7.3f, f_vary=%8.3f\n",  
+    // 	   machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l], drop, fvary);
 
-}
-
-void G2D::l2norm(double* vec, double* l2){
-
-  int nl        = nM*nRey*nAoa;
-  // int qcount    = nl*jtot*ktot*nvar;
-  int i, leftover, smem;
-  int j, k, l, v;
-
-  dim3 vthr(32,4,nvar);
-  dim3 vblk;
-  vblk.x = (jtot-1-nghost*2)/vthr.x+1;
-  vblk.y = (ktot-1-nghost*2)/vthr.y+1;
-  vblk.z = nl;
-
-  int pts = (jtot-nghost*2)*(ktot-nghost*2);
-
-  int c=0;
-  double* scratch1 = &wrk[c]; c+= pts*nvar*nl;
-  double* scratch2 = &wrk[c]; c+= pts*nvar*nl;
-
-  // do not group
-  reorder_and_square<0><<<vblk,vthr>>>(jtot,ktot,nvar,nghost,vec,scratch1);
-
-  dim3 threads(1,1,1), blocks(1,1,nl);
-
-  int n     = pts*nvar;
-  int power = min(9, (int)ceil(log2(n*1.0)));
-
-  threads.x = pow(2,power);
-  leftover = n;
-  i = 0;
-  while(leftover > 1){
-
-    blocks.x = (leftover - 1)/ threads.x + 1;
-    smem = threads.x*sizeof(double);
-
-    if(i%2 == 0){
-      eachsum<<<blocks,threads,smem>>>(scratch1, leftover, scratch2);
-    } else {
-      eachsum<<<blocks,threads,smem>>>(scratch2, leftover, scratch1);
+    // First criteria: residual converges more than 5 orders
+    if(drop > 5.0){
+      done[l] = true;
+      printf("# DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 5 orders\n", 
+    	     machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+      continue;
     }
-    i++;
-    leftover = blocks.x;
-  }
-  
-  if(i%2 == 1){
-    HANDLE_ERROR(cudaMemcpy(l2,scratch2,nl*sizeof(double),cudaMemcpyDeviceToHost));
-  } else {
-    HANDLE_ERROR(cudaMemcpy(l2,scratch1,nl*sizeof(double),cudaMemcpyDeviceToHost));
-  }
 
-  for(l=0;l<nl;l++){
-    l2[l] = sqrt(l2[l]);
-  }
-
-}
-
-void G2D::check_convergence(double* s){
-
-  int nl        = nM*nRey*nAoa;
-  // int qcount    = nl*jtot*ktot*nvar;
-  int i, leftover, smem;
-  int j, k, l, v;
-
-#ifdef GROUP_MEANFLOW
-  int nv = 2;
-#else
-  int nv = nvar;
-#endif
-
-  int istep = this->istep+1;
-
-  dim3 vthr(32,4,nv);
-  dim3 vblk;
-  vblk.x = (jtot-1-nghost*2)/vthr.x+1;
-  vblk.y = (ktot-1-nghost*2)/vthr.y+1;
-  vblk.z = nl;
-
-  int pts = (jtot-nghost*2)*(ktot-nghost*2);
-
-  int c=0;
-  double* scratch1 = &wrk[c]; c+= pts*nv*nl;
-  double* scratch2 = &wrk[c]; c+= pts*nv*nl;
- 
-  // --------------------------------------------------------------
-  // double* scpu  = new double[jtot*ktot*nvar*nl];
-  // HANDLE_ERROR( cudaMemcpy(scpu, s, jtot*ktot*nvar*nl*sizeof(double), cudaMemcpyDeviceToHost) );
-  // double l2cpu, ss;
-  // int ii;
-  // int vcheck=1;
-  // int dcnt=1;
-  // for(l=0; l<nl; l++){
-  //   printf("[cpu] %3d ", l);
-  //   for(v=0; v<nvar; v++){
-  //     l2cpu=0;
-  //     for(k=nghost; k<ktot-nghost; k++){
-  // 	for(j=nghost; j<jtot-nghost; j++){
-  // 	  ss = scpu[(j + k*jtot + l*jtot*ktot)*nvar+v];
-  // 	  // if(ii++<dcnt) printf("%16.8e ", ss*ss);
-  // 	  l2cpu += ss*ss;
-  // 	}
-  //     }
-  //     printf("%16.8e ",l2cpu);
-  //   }
-  //   printf("\n");
-  // }
-  // delete[] scpu;
-  // --------------------------------------------------------------------
-#ifdef GROUP_MEANFLOW
-  reorder_and_square<1><<<vblk,vthr>>>(jtot,ktot,nvar,nghost,s,scratch1);
-#else
-  reorder_and_square<0><<<vblk,vthr>>>(jtot,ktot,nvar,nghost,s,scratch1);
-#endif
-
-  // HANDLE_ERROR( cudaMemcpy(scpu, scratch1, pts*nv*nl*sizeof(double), cudaMemcpyDeviceToHost) );
-  // for(l=0;l<nl;l++){
-  //   printf("[cpu]_%3d ", l);
-  //   for(v=0; v<nv; v++){
-  //     l2cpu=0;
-  //     for(i=0; i<pts; i++){
-  // 	  ss     = scpu[i + v*pts + l*nv*pts];
-  // 	  l2cpu += ss;
-  //     }
-  //     printf("%16.8e ",l2cpu);
-  //   }
-  //   printf("\n");
-  // }
-
-  dim3 threads(1,1,1), blocks(1,nv,nl);
-
-  double* l2var = new double[nv*nl];
-
-  int n     = pts;
-  int power = min(9, (int)ceil(log2(n*1.0)));
-
-  threads.x = pow(2,power);
-  leftover = n;
-  i = 0;
-  while(leftover > 1){
-
-    blocks.x = (leftover - 1)/ threads.x + 1;
-    smem = threads.x*sizeof(double);
-
-    if(i%2 == 0){
-      eachsum<<<blocks,threads,smem>>>(scratch1, leftover, scratch2);
-    } else {
-      eachsum<<<blocks,threads,smem>>>(scratch2, leftover, scratch1);
+    // Second criteria: forces have not changed more than 0.1%
+    if(fvary < 0.1){
+      done[l] = true;
+      printf("# DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1% change in forces\n", 
+    	     machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+      continue;
     }
-    i++;
-    leftover = blocks.x;
-  }
-  
-  if(i%2 == 1){
-    HANDLE_ERROR(cudaMemcpy(l2var,scratch2,nv*nl*sizeof(double),cudaMemcpyDeviceToHost));
-  } else {
-    HANDLE_ERROR(cudaMemcpy(l2var,scratch1,nv*nl*sizeof(double),cudaMemcpyDeviceToHost));
+
   }
 
-  // scratch1 += pts;
+  int* lmap = new int[nl];
 
-  // printf("[All Norm] %6d %16.8e\n", istep, sqrt(normsq/pts));
-
-  // printf("%6d ",istep);
-
-  if(not resfile){
-    resfile = fopen("residuals.dat", "a");
-  }
-
-  double elapsed = timer.peek();
-
-  bool nan_found = false;
-  double l2all;
-
+  int ll=0;
   for(l=0; l<nl; l++){
-    l2all=0.0;
-    printf("# %6d %2d %3d ", istep, 0, l);
-    fprintf(resfile,"%6d %2d %3d ", istep, 0, l);
-    for(v=0; v<nv; v++){
-      l2all += l2var[v+l*nv];
-      printf("%16.8e ", sqrt(l2var[v + l*nv]));
-      fprintf(resfile,"%16.8e ", sqrt(l2var[v + l*nv]));
-      nan_found = (nan_found or not isfinite(l2var[v + l*nv]));
+
+    if(done[l]){
+      // continue without incrementing ll ( and start shifting next time )
+      continue;
     }
-    l2all = sqrt(l2all);
-    printf("%16.8e #\n", l2all);
-    fprintf(resfile,"%16.8e %14.6e #\n", l2all, elapsed);
+
+    lmap[ll] = l;
+
+    if(l == ll){
+      // we haven't hit any completed cases, increment ll and move on
+      ll++;
+      continue;
+    }
+
+    // we need to shift:
+    machs[CPU][ll]   = machs[CPU][l];
+    aoas[CPU][ll]    = aoas[CPU][l];
+    reys[CPU][ll]    = reys[CPU][l];
+
+    res_fname[ll]    = res_fname[l];
+    forces_fname[ll] = forces_fname[l];
+    cpcf_fname[ll]   = cpcf_fname[l];
+    sol_fname[ll]    = sol_fname[l];
+
+    res[ll]          = res[l];
+    res0[ll]         = res0[l];
+
+    ll++;
+
   }
 
-  // leave the file open for writing in case we do GMRES and write linear iteration info
+  this->nl = ll;
 
-  // delete[] scpu;
-  // delete[] scpu2;
+  int* lmap_gpu = (int*)wrk;
 
-  delete[] l2var;
+  // copy the map to the GPU
+  HANDLE_ERROR( cudaMemcpy(lmap_gpu, lmap, nl*sizeof(int), cudaMemcpyHostToDevice) );
+  
+  // copy the shifted M, Aoa, Rey values to the GPU (small data so it's ok)
+  HANDLE_ERROR( cudaMemcpy(this->machs[GPU], this->machs[CPU], nl*sizeof(double), cudaMemcpyHostToDevice) );
+  HANDLE_ERROR( cudaMemcpy(this->aoas[GPU],  this->aoas[CPU],  nl*sizeof(double), cudaMemcpyHostToDevice) );
+  HANDLE_ERROR( cudaMemcpy(this->reys[GPU],  this->reys[CPU],  nl*sizeof(double), cudaMemcpyHostToDevice) );
+  
+  double* newq = this->s;
+  
+  dim3 thr(256,1,1);
+  dim3 blk(1,1,nl);
+  blk.x = (jtot*ktot*nvar-1)/thr.x+1;
+  
+  // Shift q into qtmp (which is s residual storage). 
+  shift_q<<<blk,thr>>>(q[GPU],newq,jtot*ktot*nvar,lmap_gpu);
 
-  if(nan_found) this->istep=999999999;
+  // Then swap s and q pointers.
+  this->s      = this->q[GPU];
+  this->q[GPU] = newq;
+
+  delete[] done;
+  delete[] lmap;
 
 }
