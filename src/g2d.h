@@ -24,6 +24,12 @@
 
 #define AVG_HIST 20
 
+#define CFL_TIMEACC 1.0
+#define DX_TIMEACC  0.01
+
+#define DT_GLOBAL( m ) (DX_TIMEACC*CFL_TIMEACC/(1+m))
+// #define DT_GLOBAL( m ) (0.001)
+
 #include "gpu.h"
 #include "helper_math.h"
 #include "timer.h"
@@ -62,6 +68,7 @@ class G2D {
   double *res0, *res;
   double *fhist; // force history
 
+  bool timeac;
   int eqns;
   int istep, iforce;
 
@@ -79,7 +86,7 @@ class G2D {
   void viscous_flux(double* q, double* s);
   void compute_rhs(double* q, double* s);
   void precondition(double* sin, double* sout);
-  void gmres(double* s);
+  void gmres(double* s, int isub);
   void dadi(double* s);
   void check_convergence();
   void check_forces();

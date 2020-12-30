@@ -142,13 +142,19 @@ __global__ void minus_mult(double *rhs, double *res, double over_eps, int tot){
   if(i<tot) res[i+l*tot] = (rhs[i+l*tot]-res[i+l*tot])*over_eps;
 }
 
-__global__ void time_diag(double* res, double* dq, double* dt, int pts, int nvar){
+__global__ void time_diag(double* res, double* dq, double* dt, int pts, int nvar, double* machs, bool timeac){
 
   int i   = blockDim.x * blockIdx.x + threadIdx.x;
   int l   = blockIdx.z;
   if(i<pts*nvar){ 
     double scale = (i%nvar==4)? SASCALE : 1.0;
-    double idtau = scale/dt[i/nvar+l*pts];
+    double idtau;
+    if(timeac){
+      double dt_global = DT_GLOBAL(machs[l]);
+      idtau = scale*(1/dt[i/nvar+l*pts] - 1/dt_global);
+    } else {
+      idtau = scale/dt[i/nvar+l*pts];
+    }
     res[i+l*pts*nvar] += dq[i+l*pts*nvar]*idtau;
   }
 
@@ -207,7 +213,7 @@ void G2D::mvp(double* dq, double* res){
 
   // printf("----back to gmres\n");
 
-  time_diag<<<blk,thr>>>(res,dq,dt,jtot*ktot,nvar);
+  time_diag<<<blk,thr>>>(res,dq,dt,jtot*ktot,nvar,machs[GPU],timeac);
 
   this->zero_bc(res);
 

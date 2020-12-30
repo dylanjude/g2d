@@ -292,7 +292,7 @@ void G2D::compute_residual(double* s, int isub){
 #ifdef PRINT_STDIO
     printf("# %6d %2d ", istep, 0);
 #endif
-    fprintf(resfile[l],"%6d %2d ", istep, 0);
+    fprintf(resfile[l],"%6d %3d %2d ", istep, isub, 0);
     for(v=0; v<nv; v++){
       l2all += l2var[v+l*nv];
 #ifdef PRINT_STDIO

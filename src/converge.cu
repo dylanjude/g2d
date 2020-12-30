@@ -40,8 +40,8 @@ void G2D::check_convergence(){
     // printf("# CASE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, drop=%7.3f, f_vary=%8.3f\n",  
     // 	   machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l], drop, fvary);
 
-    // First criteria: residual converges more than 5 orders
-    if(drop > 5.0){
+    // First criteria: residual converges more than 6 orders
+    if(drop > 6){
       done[l] = true;
       printf("# DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 5 orders\n", 
     	     machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
@@ -49,9 +49,9 @@ void G2D::check_convergence(){
     }
 
     // Second criteria: forces have not changed more than 0.1%
-    if(fvary < 0.1){
+    if(fvary < 0.1 and drop > 4){
       done[l] = true;
-      printf("# DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1% change in forces\n", 
+      printf("# DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
     	     machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
       continue;
     }

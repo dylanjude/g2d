@@ -19,7 +19,7 @@ __global__ void update_dbg(int jtot,int ktot,int nvar,int nghost, double* q, dou
 }
 
 
-void G2D::gmres(double* rhs){
+void G2D::gmres(double* rhs, int isub){
 
   int alldof = jtot*ktot*nl*nvar;
   int dof    = jtot*ktot*nvar;
@@ -31,6 +31,9 @@ void G2D::gmres(double* rhs){
   // gmres_nkrylov=1;
 
   int nvec = gmres_nkrylov;
+
+  // first sub-iteration of timeaccurate runs only use half the krylov vectors
+  if(this->timeac and isub==0) nvec = nvec/2;
 
   double *norm, *residual, *tmp;
   norm     = new double[nl];
@@ -137,9 +140,9 @@ void G2D::gmres(double* rhs){
       if(resfile[l]){
 	double elapsed = timer.peek();
 #ifdef PRINT_STDIO
-	printf("# %6d %2d %16s %16s %16.8e\n", istep, j+1,  "-",  "-", norm[l]);
+	printf("# %6d %5d%2d %16s %16s %16.8e\n", istep, isub, j+1,  "-",  "-", norm[l]);
 #endif
-	fprintf(resfile[l], "%6d %2d %16s %16s %16.8e %14.6e\n", istep, j+1,  "-1",  "-1", norm[l], elapsed);
+	fprintf(resfile[l], "%6d %3d %2d %16s %16s %16.8e %14.6e\n", istep, isub, j+1,  "-1",  "-1", norm[l], elapsed);
       }
     }
 

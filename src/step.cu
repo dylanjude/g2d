@@ -1,7 +1,7 @@
 #include "g2d.h"
 
 __global__ void set_dt(int jtot,int ktot,int nvar,int nghost,
-		       double* q, double* dt, double* vol, double2* Sj, double2* Sk, double cfl){
+		       double* q, double* dt, double* vol, double2* Sj, double2* Sk, double cfl, bool timeac, double* machs){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x;
   int k  = blockDim.y*blockIdx.y + threadIdx.y;
@@ -34,7 +34,15 @@ __global__ void set_dt(int jtot,int ktot,int nvar,int nghost,
   // int ib = (j+nghost < jtot and k+nghost < ktot);
   int ib = 1;//(j+nghost < jtot and k+nghost < ktot);
 
-  dt[0] = ib*vol[gidx]*cfl/eigmax;
+  double dt_local  = ib*vol[gidx]*cfl/eigmax;
+
+  if(not timeac){
+    dt[0] = dt_local;
+  } else {
+    double M = machs[blockIdx.z];
+    double dt_global = DT_GLOBAL(M);
+    dt[0] = dt_global / (1.0 + dt_global/dt_local);
+  }
 
 }
 
@@ -60,12 +68,22 @@ __global__ void update_q(int jtot,int ktot,int nvar,int nghost, double* q, doubl
 
 void G2D::go(){
 
-  double cfl = 100.0;
+  double cfl;
+  
+  cfl = 100.0;
+  for(int i=0; i<5; i++){
+    this->take_steps(100,1,cfl);
+  }
 
-  this->take_steps(100,1,cfl);
-  this->take_steps(100,1,cfl);
-  this->take_steps(100,1,cfl);
-  this->take_steps(100,1,cfl);
+  cfl = 50.0;
+  for(int i=0; i<5; i++){
+    this->take_steps(100,1,cfl);
+  }
+
+  cfl = 100.0;
+  for(int i=0; i<100; i++){
+    this->take_steps(100,4,cfl);
+  }
 
 }
 
@@ -86,6 +104,8 @@ void G2D::take_steps(int nstep, int nsub, double cfl0){
 
   bool check;
 
+  this->timeac = (nsub>1);
+
   int nl0 = nM*nAoa*nRey;
 
   for(int i=0; i<nstep && istep<1000000 && nl>0; i++){
@@ -101,11 +121,11 @@ void G2D::take_steps(int nstep, int nsub, double cfl0){
 
     check = ((i+1) % checkmod == 0);
 
-    set_dt<<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],dt,vol,Sj,Sk,cfl);
+    set_dt<<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],dt,vol,Sj,Sk,cfl,timeac,machs[GPU]);
+
+    this->istep++; // increment global step count
 
     for(int isub=0; isub<nsub; isub++){
-
-      this->istep++; // increment global step count
 
       this->compute_rhs(q[GPU],s);
 
@@ -114,7 +134,7 @@ void G2D::take_steps(int nstep, int nsub, double cfl0){
       }
 
       // this->precondition(s,s);
-      this->gmres(s);
+      this->gmres(s,isub);
 
       update_q<<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],s);
 

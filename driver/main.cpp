@@ -70,7 +70,7 @@ int main(int argc, char** argv){
   while(getline(iss,value,' ')){
     scratch[nAoA++] = stod(value);
   }
-  aoas = new double[nM];
+  aoas = new double[nAoA];
   for(int i=0; i<nAoA; i++){
     aoas[i] = scratch[i];
   }
@@ -81,7 +81,7 @@ int main(int argc, char** argv){
   while(getline(iss,value,' ')){
     scratch[nRey++] = stod(value);
   }
-  reys = new double[nM];
+  reys = new double[nRey];
   for(int i=0; i<nRey; i++){
     reys[i] = scratch[i];
   }

@@ -1,6 +1,6 @@
 #include "g2d.h"
 
-// #define USE_DES
+#define USE_DES
 
 #define ONE_BY_SIGMA 1.5
 #define CB2 0.622
@@ -466,6 +466,10 @@ __global__ void sa_source(int jtot, int ktot, int nvar, int nghost, double* q, d
 
   // d  = sqrt(dot(dxy,dxy));
   d2 = max(dot(dxy,dxy),d2min); // dist squared
+#ifdef USE_DES
+  double d2_les  = max(dot(Sj[grid_idx], Sj[grid_idx]),dot(Sk[grid_idx], Sk[grid_idx]));
+  d2 = d2 - fmax(0.0, d2 - CDES*CDES*d2_les);
+#endif
 
   stilda = vorticity[grid_idx] + nu_lam/(d2*cappa2*rey)*chi*fv2;
   stilda = max(stilda,0.3*vorticity[grid_idx]);

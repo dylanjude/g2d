@@ -4,7 +4,7 @@
 #define DBGK 50
 
 // add bdf terms and divide by volume
-__global__ void bdf(int jtot,int ktot,int nvar,int nghost, double* q, double* qp, double* s, double* dt, double* vol){
+__global__ void bdf(int jtot,int ktot,int nvar,int nghost, double* q, double* qp, double* s, double* dt, double* vol, double* machs){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x + nghost;
   int k  = blockDim.y*blockIdx.y + threadIdx.y + nghost;
@@ -19,10 +19,9 @@ __global__ void bdf(int jtot,int ktot,int nvar,int nghost, double* q, double* qp
 
   double scale = (v==4)? SASCALE : 1.0;
 
-  if(gridDim.z==2)
-    s[v] = s[v]*(blockIdx.z==1);
-  // s[v] = s[v] - scale*(q[v]-qp[v])/dt[0];
-  // s[v] = s[v]/vol[j+k*jtot];// - (q[v]-qp[v])/dt[0];
+  double dt_global = DT_GLOBAL(machs[blockIdx.z]);
+
+  s[v] = s[v] - scale*(q[v]-qp[v])/dt_global;
 
 }
 
@@ -60,9 +59,9 @@ void G2D::compute_rhs(double* qtest, double* stest){
   // debug_print(87,2,0,stest,5);
   // debug_print(87,2,0,vol,1);
 
-  // if(debug_flag){
-  // bdf<<<vblk,vthr>>>(jtot,ktot,nvar,nghost,qtest,qp,stest,dt,vol);
-  // }
+  if(timeac){
+    bdf<<<vblk,vthr>>>(jtot,ktot,nvar,nghost,qtest,qp,stest,dt,vol,machs[GPU]);
+  }
 
   this->zero_bc(stest);
 

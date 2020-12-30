@@ -52,6 +52,7 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,
   this->iforce  = 0;
 
   this->eqns       = eqns;
+  this->timeac     = false;
 
   res_fname    = new string[nl];
   forces_fname = new string[nl];
