@@ -50,6 +50,7 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,
   this->gmres_nkrylov = 10;
   this->resfile = new FILE*[nl];
   this->iforce  = 0;
+  this->istep   = 0;
 
   this->eqns       = eqns;
   this->timeac     = false;
