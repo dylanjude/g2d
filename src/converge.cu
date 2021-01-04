@@ -49,7 +49,7 @@ void G2D::check_convergence(){
     }
 
     // Second criteria: forces have not changed more than 0.1%
-    if(fvary < 0.1 and drop > 4){
+    if(fvary < 0.1 and drop > 5){
       done[l] = true;
       printf("# DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
     	     machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);

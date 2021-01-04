@@ -30,12 +30,11 @@ __global__ void wall_forces(int jtot, int ktot, int nvar, int nghost, double* q,
   double p1 = (GAMMA - 1.0)*(q[3] - 0.5*(q[1]*q[1] + q[2]*q[2])/q[0]);
   
   q += nvar*jtot; // step in k-direction
+  // double du = q[1]/q[0] - u;
+  // double dv = q[2]/q[0] - v;
 
-  double du = q[1]/q[0] - u;
-  double dv = q[2]/q[0] - v;
-
-  // double du = 2*u;
-  // double dv = 2*v;
+  double du = 2*u;
+  double dv = 2*v;
 
   double p2 = (GAMMA - 1.0)*(q[3] - 0.5*(q[1]*q[1] + q[2]*q[2])/q[0]);
 
@@ -64,7 +63,9 @@ __global__ void wall_forces(int jtot, int ktot, int nvar, int nghost, double* q,
 
   if(visc){
     mu = 1.0/rey;
-    mu = mu*0.5*(mulam[0] + mulam[jtot]);
+    mu = mu*0.5*(3*mulam[0] - mulam[jtot]);
+    // mu = mu*0.5*(mulam[0] + mulam[jtot]);
+    // mu = mu*mulam[0];
     // du is 0.5*u because no grid motion
     f_wall = mu*(du*t.x + dv*t.y)*idn;
   }
@@ -72,24 +73,8 @@ __global__ void wall_forces(int jtot, int ktot, int nvar, int nghost, double* q,
   double2 ff = (f_wall*t - p_wall*n)*area;        // force at panel center
   double2 r  = 0.5*(x[j+k*jtot] + x[j+1+k*jtot]); // coord of panel center
 
-  // if(j==160){
-  //   // printf("(%f %f) (%f %f)\n", x[j+k*jtot].x, x[j+k*jtot].y, x[j+1+k*jtot].x, x[j+1+k*jtot].y);
-  //   // printf("normal:  %f %f\n", n.x, n.y);
-  //   printf("tangent: %16.8e %16.8e\n", t.x, t.y);
-  //   printf("u vals : %16.8e %16.8e %16.8e\n", q[1]/q[0], u, du);
-  //   printf("v vals : %16.8e %16.8e %16.8e\n", q[2]/q[0], v, dv);
-  //   printf("mu     : %16.8e %16.8e\n", mu, idn);
-  //   // printf("idn    : %16.8e %16.8e\n", idn, sqrt(dot(n,n))/vol[j+k*jtot]); 
-  //   printf("fwall  : %d %16.8e\n", j-nghost, f_wall);
-  //   // printf("_________\n");
-  //   // printf("%16.8e %16.8e %16.8e %16.8e \n"
-  // }
-
-  r.x = r.x-0.25; // radius to quarter chord
-
-  // if(j==97){
-  //   printf("%16.8e %16.8e %16.8e\n", r.x*ff.y - r.y*ff.x, r.x, ff.y);
-  // }
+  r.x = -(r.x-0.25); // vector from the panel TO the quarter
+  r.y = -r.y;        // chord. Then r cross ff gives a nose-up moment.
 
   // these are strided for easy summation later
   if(mode==CPCF){
@@ -203,10 +188,10 @@ void G2D::check_forces(){
     Cn = fac*fsum[l*3+1];
     Cm = fac*fsum[l*3+2];
 	  
-    Cl = Cn*cos(alpha) + Cc*sin(alpha);
-    Cd = Cc*cos(alpha) - Cn*sin(alpha);
+    Cl = Cn*cos(alpha) - Cc*sin(alpha);
+    Cd = Cc*cos(alpha) + Cn*sin(alpha);
 
-    fhist[l*AVG_HIST+(iforce%AVG_HIST)] = Cl;// + 10*Cd + 100*Cm;
+    fhist[l*AVG_HIST+(iforce%AVG_HIST)] = Cl + 10*Cd + 100*Cm;
 
     // printf("alpha: %f, Mach : %f\n", alpha, machs[CPU][im]);
 
@@ -251,6 +236,7 @@ void G2D::write_cpcf(){
 
       double xx = 0.5*(x[CPU][j+nghost+nghost*jtot].x + x[CPU][j+nghost+1+nghost*jtot].x);
       double p  = (fcpu[j + (jtot-nghost*2)*0] - 1.0/GAMMA)/(0.5*machs[CPU][l]*machs[CPU][l]);
+      // double p  = (fcpu[j + (jtot-nghost*2)*0])/(0.5*machs[CPU][l]*machs[CPU][l]);
       double f  = (fcpu[j + (jtot-nghost*2)*1]            )/(0.5*machs[CPU][l]*machs[CPU][l]);
       
       fprintf(fid, "%16.8e %16.8e %16.8e\n", xx, p, f);

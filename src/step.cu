@@ -76,13 +76,13 @@ void G2D::go(){
   }
 
   cfl = 50.0;
-  for(int i=0; i<5; i++){
+  for(int i=0; i<10; i++){
     this->take_steps(100,1,cfl);
   }
 
   cfl = 100.0;
   for(int i=0; i<100; i++){
-    this->take_steps(100,4,cfl);
+    this->take_steps(100,3,cfl);
   }
 
 }
