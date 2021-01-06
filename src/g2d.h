@@ -27,6 +27,12 @@
 #define CFL_TIMEACC 1.0
 #define DX_TIMEACC  0.01
 
+#define F_TIMEACC 0b0001
+#define F_NAN     0b0010
+#define F_SAFE    0b0100
+#define F_RECOVER 0b1000
+
+
 #define DT_GLOBAL( m ) (DX_TIMEACC*CFL_TIMEACC/(1+m))
 // #define DT_GLOBAL( m ) (0.001)
 
@@ -40,7 +46,7 @@ class G2D {
   double* machs[2];
   double* reys[2];
   double* aoas[2];
-  double* lreys[2];
+  unsigned char* flags[2];
 
   int order, nghost, nvar;
   int jtot,ktot;
@@ -49,6 +55,8 @@ class G2D {
   double2* x[2];
   double2* xc;
   double* q[2];
+
+  double* qsafe;
 
   double *qp, *dt, *wrk, *s;
   double *mulam, *muturb;
@@ -68,7 +76,7 @@ class G2D {
   double *res0, *res;
   double *fhist; // force history
 
-  bool timeac;
+  bool all_timeacc;
   int eqns;
   int istep, iforce;
 
@@ -92,6 +100,7 @@ class G2D {
   void check_forces();
   void write_cpcf();
   void compute_residual(double* s, int isub);
+  void checkpoint();
 
   void vdp(double* a, double* b, double* out);
   void mvp(double* a, double* b);

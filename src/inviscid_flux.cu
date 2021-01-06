@@ -163,6 +163,35 @@ __global__ void roe_flux(int jtot, int ktot, int nvar, int nghost,
 }
 
 template<int dir>
+__global__ void first(int jtot, int ktot, double* q, double* ql, double* qr){
+
+  int j  = blockDim.x*blockIdx.x + threadIdx.x;
+  int k  = blockDim.y*blockIdx.y + threadIdx.y;
+  int v  = threadIdx.z;
+
+  if(j>jtot-1 or k>ktot-1) return;
+
+  q   += blockIdx.z*jtot*ktot*4; // this is primitive q
+  ql  += blockIdx.z*jtot*ktot*4;
+  qr  += blockIdx.z*jtot*ktot*4;
+
+  int idx = (j + k*jtot)*4 + v;
+  int idx_m1;
+
+  if(dir == 0){
+    idx_m1 = idx    - 4*(j>0);
+  }
+  if(dir == 1){
+    idx_m1 = idx    - jtot*4*(k>0);
+  }
+
+  ql[idx] = q[idx_m1];
+  qr[idx] = q[idx];
+
+}
+
+
+template<int dir>
 __global__ void muscl(int jtot, int ktot, double* q, double* ql, double* qr){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x;
@@ -383,19 +412,24 @@ void G2D::inviscid_flux(double* q, double* s){
   blk.y     = (ktot-nghost*2)/thr.y+1; // want the last face so this is not jtot-1-nghost*2
   blk.z     = nl;
 
+  // int order = (this->istep > 200)? this->order : 1;
+  int order = this->order;
+
   // 
   // J-Direction
   //
-  if(order<5) muscl<0><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
-  else        weno5<0><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
+  if(order<3)      first<0><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
+  else if(order<5) muscl<0><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
+  else             weno5<0><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
   roe_flux<0><<<blk,thr>>>(jtot,ktot,nvar,nghost,ql,qr,flx,Sj);
   add_iflux<0><<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx,vol);
 
   // 
   // K-Direction
   //
-  if(order<5) muscl<1><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
-  else        weno5<1><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
+  if(order<3)      first<1><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
+  else if(order<5) muscl<1><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
+  else             weno5<1><<<vblk,vthr>>>(jtot,ktot,qprim,ql,qr);
   roe_flux<1><<<blk,thr>>>(jtot,ktot,nvar,nghost,ql,qr,flx,Sk);
   add_iflux<1><<<vblk_ng,vthr>>>(jtot,ktot,nvar,nghost,s,flx,vol);
 

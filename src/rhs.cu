@@ -4,11 +4,15 @@
 #define DBGK 50
 
 // add bdf terms and divide by volume
-__global__ void bdf(int jtot,int ktot,int nvar,int nghost, double* q, double* qp, double* s, double* dt, double* vol, double* machs){
+__global__ void bdf(int jtot,int ktot,int nvar,int nghost, double* q, double* qp, double* s, 
+		    double* dt, double* vol, double* machs, unsigned char* flags){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x + nghost;
   int k  = blockDim.y*blockIdx.y + threadIdx.y + nghost;
   int v  = threadIdx.z;
+
+  // exit early if this 2D plane is not timeaccurate
+  if(!(flags[blockIdx.z] & F_TIMEACC)) return;
 
   q   += j*nvar + k*jtot*nvar + blockIdx.z*jtot*ktot*nvar;
   qp  += j*nvar + k*jtot*nvar + blockIdx.z*jtot*ktot*nvar;
@@ -56,12 +60,7 @@ void G2D::compute_rhs(double* qtest, double* stest){
     this->sa_rhs(qtest, stest);
   }
 
-  // debug_print(87,2,0,stest,5);
-  // debug_print(87,2,0,vol,1);
-
-  if(timeac){
-    bdf<<<vblk,vthr>>>(jtot,ktot,nvar,nghost,qtest,qp,stest,dt,vol,machs[GPU]);
-  }
+  bdf<<<vblk,vthr>>>(jtot,ktot,nvar,nghost,qtest,qp,stest,dt,vol,machs[GPU],flags[GPU]);
 
   this->zero_bc(stest);
 

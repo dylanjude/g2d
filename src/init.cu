@@ -36,6 +36,7 @@ void G2D::init(){
   HANDLE_ERROR( cudaMalloc((void**)&this->x[GPU], jtot*ktot*sizeof(double2)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->q[GPU], qcount*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->qp,     qcount*sizeof(double)) );
+  HANDLE_ERROR( cudaMalloc((void**)&this->qsafe,  qcount*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->s,      qcount*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->wrk,  4*qcount*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->dt,     jtot*ktot*nl*sizeof(double)) );
@@ -97,6 +98,8 @@ void G2D::init(){
   blk.z = nl;
 
   init_flow<<<blk,thr>>>(jtot,ktot,nvar,q[GPU],machs[GPU],aoas[GPU]);
+
+  HANDLE_ERROR( cudaMemcpy(qsafe, q[GPU], qcount*sizeof(double), cudaMemcpyHostToDevice) );  
 
   this->metrics();
 

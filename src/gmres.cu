@@ -2,6 +2,8 @@
 
 // #define PRINT_STDIO
 
+#define BIGRES 9999999
+
 __global__ void update_dbg(int jtot,int ktot,int nvar,int nghost, double* q, double* s){
 
   int j  = blockDim.x*blockIdx.x + threadIdx.x + nghost;
@@ -33,7 +35,7 @@ void G2D::gmres(double* rhs, int isub){
   int nvec = gmres_nkrylov;
 
   // first sub-iteration of timeaccurate runs only use half the krylov vectors
-  if(this->timeac and isub==0) nvec = nvec/2;
+  // if(this->timeac and isub==0) nvec = nvec/2;
 
   double *norm, *residual, *tmp;
   norm     = new double[nl];
@@ -139,10 +141,11 @@ void G2D::gmres(double* rhs, int isub){
 
       if(resfile[l]){
 	double elapsed = timer.peek();
+	double safe_norm = (isfinite(norm[l]))? norm[l] : BIGRES;
 #ifdef PRINT_STDIO
 	printf("# %6d %5d%2d %16s %16s %16.8e\n", istep, isub, j+1,  "-",  "-", norm[l]);
 #endif
-	fprintf(resfile[l], "%6d %3d %2d %16s %16s %16.8e %14.6e\n", istep, isub, j+1,  "-1",  "-1", norm[l], elapsed);
+	fprintf(resfile[l], "%6d %3d %2d %16s %16s %16.8e %14.6e\n", istep, isub, j+1,  "-1",  "-1", safe_norm, elapsed);
       }
     }
 

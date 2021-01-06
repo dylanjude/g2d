@@ -52,8 +52,8 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,
   this->iforce  = 0;
   this->istep   = 0;
 
-  this->eqns       = eqns;
-  this->timeac     = false;
+  this->eqns        = eqns;
+  this->all_timeacc = false;
 
   res_fname    = new string[nl];
   forces_fname = new string[nl];
@@ -67,6 +67,7 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,
   this->machs[CPU] = new double[nl];
   this->aoas[CPU]  = new double[nl];
   this->reys[CPU]  = new double[nl];
+  this->flags[CPU] = new unsigned char[nl];
   char charbuff[64];
 
   sprintf(charbuff, "%s_old", foilname.c_str());
@@ -107,17 +108,22 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,
 	  fhist[l*AVG_HIST+i] = 0.0;
 	}
 
+	flags[CPU][l] = 0;
+
 	l++;
       }
     }
   }
 
+  HANDLE_ERROR( cudaMalloc((void**)&this->flags[GPU], nl*sizeof(unsigned char)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->machs[GPU], nl*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->aoas[GPU],  nl*sizeof(double)) );
   HANDLE_ERROR( cudaMalloc((void**)&this->reys[GPU],  nl*sizeof(double)) );
   HANDLE_ERROR( cudaMemcpy(this->machs[GPU], this->machs[CPU], nl*sizeof(double), cudaMemcpyHostToDevice) );
   HANDLE_ERROR( cudaMemcpy(this->aoas[GPU], this->aoas[CPU],   nl*sizeof(double), cudaMemcpyHostToDevice) );
   HANDLE_ERROR( cudaMemcpy(this->reys[GPU], this->reys[CPU],   nl*sizeof(double), cudaMemcpyHostToDevice) );
+  HANDLE_ERROR( cudaMemset(this->flags[GPU], 0, nl) );
+
 
   this->nvar       = 5;
   this->x0         = (double2*)xy;
@@ -134,6 +140,7 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,
   Sk     = NULL;
   vol    = NULL;
   qp     = NULL;
+  qsafe  = NULL;
   dt     = NULL;
   mulam  = NULL;
   wrk    = NULL;
@@ -172,9 +179,11 @@ G2D::~G2D(){
   if(res0)         delete[] res0;  
   if(fhist)        delete[] fhist;
 
+  if(flags[GPU]) HANDLE_ERROR( cudaFree(flags[GPU]) );
   if(q[GPU])     HANDLE_ERROR( cudaFree(q[GPU]) );
   if(x[GPU])     HANDLE_ERROR( cudaFree(x[GPU]) );
   if(qp)         HANDLE_ERROR( cudaFree(qp) );
+  if(qsafe)      HANDLE_ERROR( cudaFree(qsafe) );
   if(dt)         HANDLE_ERROR( cudaFree(dt) );
   if(s)          HANDLE_ERROR( cudaFree(s) );
   if(mulam)      HANDLE_ERROR( cudaFree(mulam) );
@@ -200,6 +209,7 @@ G2D::~G2D(){
   q[CPU]       = NULL;
   q[GPU]       = NULL;
   qp           = NULL;
+  qsafe        = NULL;
   dt           = NULL;
   s            = NULL;
   machs[GPU]   = NULL;

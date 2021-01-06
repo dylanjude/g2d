@@ -5,6 +5,8 @@
 // #define PRINT_STDIO
 #define GROUP_MEANFLOW
 
+#define BIGRES 9999999
+
 template<int group>
 __global__ void reorder_and_square(int jtot, int ktot, int nvar, int nghost, double* s, double* wrk){
 
@@ -109,6 +111,7 @@ __global__ void eachsum(double* a, int n, double* b){
 
 }
 
+
 void G2D::l2norm(double* vec, double* l2){
 
   // int qcount    = nl*jtot*ktot*nvar;
@@ -164,6 +167,18 @@ void G2D::l2norm(double* vec, double* l2){
 
 }
 
+__global__ void save_q(int pts, double* q, double* qsafe, unsigned char* flags){
+  int i = blockDim.x * blockIdx.x + threadIdx.x;
+  int l = blockIdx.z;
+  if(i<pts){
+    if(flags[l] & F_SAFE){
+      // q is good, save it
+      qsafe[i + l*pts] = q[i + l*pts];
+    }
+  }
+}
+
+
 void G2D::compute_residual(double* s, int isub){
 
   // int qcount    = nl*jtot*ktot*nvar;
@@ -188,49 +203,11 @@ void G2D::compute_residual(double* s, int isub){
   double* scratch1 = &wrk[c]; c+= pts*nv*nl;
   double* scratch2 = &wrk[c]; c+= pts*nv*nl;
  
-  // --------------------------------------------------------------
-  // double* scpu  = new double[jtot*ktot*nvar*nl];
-  // HANDLE_ERROR( cudaMemcpy(scpu, s, jtot*ktot*nvar*nl*sizeof(double), cudaMemcpyDeviceToHost) );
-  // double l2cpu, ss;
-  // int ii;
-  // int vcheck=1;
-  // int dcnt=1;
-  // for(l=0; l<nl; l++){
-  //   printf("[cpu] %3d ", l);
-  //   for(v=0; v<nvar; v++){
-  //     l2cpu=0;
-  //     for(k=nghost; k<ktot-nghost; k++){
-  // 	for(j=nghost; j<jtot-nghost; j++){
-  // 	  ss = scpu[(j + k*jtot + l*jtot*ktot)*nvar+v];
-  // 	  // if(ii++<dcnt) printf("%16.8e ", ss*ss);
-  // 	  l2cpu += ss*ss;
-  // 	}
-  //     }
-  //     printf("%16.8e ",l2cpu);
-  //   }
-  //   printf("\n");
-  // }
-  // delete[] scpu;
-  // --------------------------------------------------------------------
 #ifdef GROUP_MEANFLOW
   reorder_and_square<1><<<vblk,vthr>>>(jtot,ktot,nvar,nghost,s,scratch1);
 #else
   reorder_and_square<0><<<vblk,vthr>>>(jtot,ktot,nvar,nghost,s,scratch1);
 #endif
-
-  // HANDLE_ERROR( cudaMemcpy(scpu, scratch1, pts*nv*nl*sizeof(double), cudaMemcpyDeviceToHost) );
-  // for(l=0;l<nl;l++){
-  //   printf("[cpu]_%3d ", l);
-  //   for(v=0; v<nv; v++){
-  //     l2cpu=0;
-  //     for(i=0; i<pts; i++){
-  // 	  ss     = scpu[i + v*pts + l*nv*pts];
-  // 	  l2cpu += ss;
-  //     }
-  //     printf("%16.8e ",l2cpu);
-  //   }
-  //   printf("\n");
-  // }
 
   dim3 threads(1,1,1), blocks(1,nv,nl);
 
@@ -262,24 +239,20 @@ void G2D::compute_residual(double* s, int isub){
     HANDLE_ERROR(cudaMemcpy(l2var,scratch1,nv*nl*sizeof(double),cudaMemcpyDeviceToHost));
   }
 
-  // scratch1 += pts;
-
-  // printf("[All Norm] %6d %16.8e\n", istep, sqrt(normsq/pts));
-
-  // printf("%6d ",istep);
-
   double elapsed = timer.peek();
 
   bool nan_found = false;
   double l2all;
 
   bool first=false;
-  if(not res0 and isub==0){
+  if(not res0){
     res0  = new double[nl];
     first = true;
   }
 
   for(l=0; l<nl; l++){
+
+    nan_found = false;
 
     if(not resfile[l]){
       // open the residual files here but leave them open
@@ -290,7 +263,7 @@ void G2D::compute_residual(double* s, int isub){
 
     l2all=0.0;
 #ifdef PRINT_STDIO
-    printf("# %6d %2d ", istep, 0);
+    printf("# %6d %3d %2d ", istep, isub, 0);
 #endif
     fprintf(resfile[l],"%6d %3d %2d ", istep, isub, 0);
     for(v=0; v<nv; v++){
@@ -298,20 +271,54 @@ void G2D::compute_residual(double* s, int isub){
 #ifdef PRINT_STDIO
       printf("%16.8e ", sqrt(l2var[v + l*nv]));
 #endif
+
+      // nan_found = (nan_found or not isfinite(l2var[v + l*nv]));
+      if(not isfinite(l2var[v + l*nv]) ){
+	flags[CPU][l]   = F_TIMEACC | F_NAN | F_RECOVER; // set these flag and force timeaccuracy for subsequent steps
+	l2var[v + l*nv] = BIGRES*BIGRES;
+	l2all           = BIGRES*BIGRES;
+	nan_found = true;
+      } 
+
       fprintf(resfile[l],"%16.8e ", sqrt(l2var[v + l*nv]));
-      nan_found = (nan_found or not isfinite(l2var[v + l*nv]));
+
     }
     l2all = sqrt(l2all);
 #ifdef PRINT_STDIO
     printf("%16.8e #\n", l2all);
+    // if(nan_found) printf("Switching to timeaccurate: l=%d\n", l);
 #endif
     fprintf(resfile[l],"%16.8e %14.6e #\n", l2all, elapsed);
-    if(isub==0){
+    if(isub==0 or !(flags[CPU][l] & F_TIMEACC)){
+      if(!nan_found and l2all < res[l]){
+	// if residual decreased, set the flag to save this q vector in case of a later crash
+	flags[CPU][l] = flags[CPU][l] | F_SAFE; 
+	// printf("Saving Q\n");
+      } else {
+	// else clear that bit with bit-wise AND with bit-wise NOT of F_SAFE (1011) 
+	flags[CPU][l] = flags[CPU][l] & ~F_SAFE; 
+	// printf("NOT safe\n");
+      }
       res[l] = l2all;
       if(first){ 
 	res0[l] = l2all;
       }
     }
+  }
+
+  HANDLE_ERROR( cudaMemcpy(flags[GPU], flags[CPU], nl, cudaMemcpyHostToDevice) );
+
+  threads  = dim3(256,1,1);
+  blocks   = dim3(1,1,nl);
+  blocks.x = (jtot*ktot*nvar-1)/threads.x+1;  
+  save_q<<<blocks,threads>>>(jtot*ktot*nvar, q[GPU], qsafe, flags[GPU]);
+
+  if(nan_found){
+    this->debug_flag = 1;
+  //   this->compute_rhs(q[GPU],s);
+  //   double nrm;
+  //   this->l2norm(s,&nrm);
+  //   printf("norm is : %16.8e\n", nrm);
   }
 
   // leave the file open for writing in case we do GMRES and write linear iteration info
@@ -321,6 +328,51 @@ void G2D::compute_residual(double* s, int isub){
 
   delete[] l2var;
 
-  if(nan_found) this->istep=999999999;
+  // if(nan_found) this->istep=999999999;
+
+}
+
+
+__global__ void recover_q(int pts, double* q, double* qp, double* qsafe, unsigned char* flags){
+  int i = blockDim.x * blockIdx.x + threadIdx.x;
+  int l = blockIdx.z;
+  if(i<pts){
+    if(flags[l] & F_RECOVER){
+      q[i  + l*pts]  = qsafe[i + l*pts];
+      qp[i + l*pts]  = qsafe[i + l*pts];
+    } 
+  }
+}
+
+__global__ void unset_nan_flag(int nl, unsigned char* flags){
+  int l = blockDim.x * blockIdx.x + threadIdx.x;
+  if(l<nl){
+    flags[l] = flags[l] & ~F_RECOVER;
+  }
+}
+
+void G2D::checkpoint(){
+
+  dim3 threads(256,1,1);
+  dim3 blocks(1,1,nl);
+
+  blocks.x  = (jtot*ktot*nvar-1)/threads.x+1;
+
+  for(int l=0; l<nl; l++){
+    if(flags[CPU][l] & F_RECOVER){
+      printf("# *** Error with M=%9.3f, Alpha=%9.3f, Re=%16.8e ***\n",machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+      printf("# *** reverting to safe solution and switching to time-accurate.\n");
+    	     
+    } 
+    flags[CPU][l] = flags[CPU][l] & ~F_RECOVER;
+  }
+
+  recover_q<<<blocks,threads>>>(jtot*ktot*nvar, q[GPU], qp, qsafe, flags[GPU]);
+
+  threads.x = 128;
+  blocks.x  = (nl-1)/threads.x+1;
+  blocks.z  = 1;
+  unset_nan_flag<<<blocks,threads>>>(nl,flags[GPU]);
+
 
 }
