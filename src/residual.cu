@@ -275,8 +275,8 @@ void G2D::compute_residual(double* s, int isub){
       // nan_found = (nan_found or not isfinite(l2var[v + l*nv]));
       if(not isfinite(l2var[v + l*nv]) ){
 	flags[CPU][l]   = F_TIMEACC | F_NAN | F_RECOVER; // set these flag and force timeaccuracy for subsequent steps
-	l2var[v + l*nv] = BIGRES*BIGRES;
-	l2all           = BIGRES*BIGRES;
+	l2var[v + l*nv] = BIGRES;
+	l2all           = BIGRES;
 	nan_found = true;
       } 
 

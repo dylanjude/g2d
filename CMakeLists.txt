@@ -9,8 +9,10 @@ set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Project Build Type")
 
 project(G2D)
 
+enable_language(CUDA C CXX)
+
 option(G2D_DEBUG "Debugging Mode and Flags" OFF)
-option(G2D_PYTHON "Look for Python" OFF)
+option(G2D_PYTHON "Look for Python" ON)
 # 
 if(${CMAKE_VERSION} VERSION_GREATER "3.11")
   cmake_policy(SET CMP0074 NEW)
@@ -38,60 +40,28 @@ if(G2D_PYTHON)
     find_package(PythonInterp 2.7 REQUIRED)
     find_package(PythonLibs 2.7 REQUIRED)
   endif()
-  execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "import numpy; print( numpy.get_include() )"
-    OUTPUT_VARIABLE NUMPY_INCLUDE OUTPUT_STRIP_TRAILING_WHITESPACE)
-  message(STATUS "numpy: ${NUMPY_INCLUDE}")
-  if(${PYTHON_VERSION_STRING} VERSION_LESS "3")
-    set(PYTHON_2_COMPATIBILITY "\nfrom __future__ import absolute_import, division, print_function")
-  else()
-    set(PYTHON_2_COMPATIBILITY "# Using Python 3")
-  endif()
 endif(G2D_PYTHON)
-# ------------------------------------------------------
-# Include Directories
-set(INCLUDE_DIRS ${G2D_SOURCE_DIR}/src)
+
 
 # -----------------------------------------------------
 # CUDA
-find_package(CUDA REQUIRED)
-if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
-  list(APPEND CUDA_OPTS "-gencode=arch=compute_60,code=sm_60")
-  list(APPEND CUDA_OPTS "-gencode=arch=compute_70,code=sm_70")
-elseif((CUDA_VERSION_MAJOR EQUAL 8) OR (CUDA_VERSION_MAJOR GREATER 8))
-  list(APPEND CUDA_OPTS "-gencode=arch=compute_60,code=sm_60")
-elseif((CUDA_VERSION_MAJOR EQUAL 7) OR (CUDA_VERSION_MAJOR GREATER 7))
-  set(CUDA_OPTS "-arch=sm_30")
-  list(APPEND CUDA_OPTS "-gencode=arch=compute_30,code=sm_30")
+set(CMAKE_CUDA_FLAGS "-lineinfo -rdynamic --Wno-deprecated-gpu-targets -m64")
+if(${CMAKE_VERSION} VERSION_GREATER "3.18")
+  set(CMAKE_CUDA_ARCHITECTURES 60 70)
 else()
-  set(CUDA_OPTS "-arch=sm_20")
-  list(APPEND CUDA_OPTS "-gencode=arch=compute_20,code=sm_20")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_60,code=sm_60")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_70,code=sm_70")
 endif()
+set(CMAKE_CUDA_STANDARD 11)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+# set(CMAKE_CUDA_EXTENSIONS OFF)
+find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 
-set(CUDA_PROPAGATE_HOST_FLAGS OFF CACHE INTERNAL "Propagate host flags")
-list(APPEND CUDA_OPTS "-std=c++11")
-# force use of shared cuda runtime lib (required for Vulcanite cluster)
-find_library(CUDA_SHARED_RT libcudart.so PATHS "${CUDA_TOOLKIT_ROOT_DIR}/lib64" NO_DEFAULT_PATH)
-list(REMOVE_ITEM CUDA_LIBRARIES "${CUDA_TOOLKIT_ROOT_DIR}/lib64/libcudart_static.a")
-list(APPEND CUDA_LIBRARIES "${CUDA_SHARED_RT}")
-
-message(STATUS "CUDA target : ${CUDA_OPTS}")
-message(STATUS "CUDA libs   : ${CUDA_LIBRARIES}")
-set(CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
-# 
-if(G2D_DEBUG)
-  set(OLEVEL "-O0")
-  list(APPEND G2D_DEFINITIONS "-DDEBUG_MODE")
-  set(DEBUG_OPTS "-g")
-  list(APPEND CUDA_OPTS "${OLEVEL}")
-  list(APPEND CUDA_OPTS "-DDEBUG_MODE")
-  list(APPEND CUDA_OPTS "-g")
-  list(APPEND CARTG_DEFINITIONS "-DDEBUG_MODE")
-  message(STATUS "Debug Flags are ON")
-else(G2D_DEBUG)
-  list(APPEND CUDA_OPTS ${OLEVEL})
-  set(OLEVEL "-O3")
-  message(STATUS "Debug Flags are OFF")
-endif(G2D_DEBUG)
+# ------------------------------------------------------
+# Include Directories
+set(INCLUDE_DIRS 
+  ${G2D_SOURCE_DIR}/src
+  ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
 # ----------------------------------------------------------------
 # Main Library (GPU + CPU)
@@ -101,14 +71,13 @@ endif(G2D_DEBUG)
 #
 file(GLOB sources "${G2D_SOURCE_DIR}/src/*.cpp" "${G2D_SOURCE_DIR}/src/*.cu")
 
-list(APPEND CUDA_OPTS --compiler-options -fPIC)
-
-cuda_include_directories(${INCLUDE_DIRS})
-cuda_add_library(g2d_common SHARED ${sources} OPTIONS ${CUDA_OPTS} ${G2D_DEFINITIONS})
-# target_link_libraries(g2d_common ${CUDA_CUBLAS_LIBRARIES})
-target_include_directories(g2d_common PUBLIC ${INCLUDE_DIRS})
+add_library(g2d_common STATIC ${sources})
+target_include_directories(g2d_common PRIVATE ${INCLUDE_DIRS})
 target_compile_definitions(g2d_common PRIVATE ${G2D_DEFINITIONS})
+target_link_libraries(g2d_common PUBLIC ${CUDART_LIBRARY})
+# set_property(TARGET lib1 PROPERTY 
 set_target_properties(g2d_common PROPERTIES
+  POSITION_INDEPENDENT_CODE ON
   ARCHIVE_OUTPUT_DIRECTORY ${G2D_BINARY_DIR}/lib
   LIBRARY_OUTPUT_DIRECTORY ${G2D_BINARY_DIR}/lib
   PREFIX "" # no lib prefix
@@ -132,23 +101,23 @@ set_target_properties(g2d PROPERTIES
 # Python-wrapped Library
 #
 if(G2D_PYTHON)
-  file(GLOB py_sources "${G2D_SOURCE_DIR}/interface/pyb/*.cpp")
-  add_subdirectory("${G2D_SOURCE_DIR}/interface/pyb/pybind11")
-  pybind11_add_module(g2d ${py_sources})
-  target_include_directories(g2d PUBLIC ${INCLUDE_DIRS})
-  target_link_libraries(g2d PRIVATE g2d_common ${MPI_LIBRARIES})
-  set_target_properties(g2d PROPERTIES
+  file(GLOB py_sources "${G2D_SOURCE_DIR}/interface/*.cpp")
+  add_subdirectory("${G2D_SOURCE_DIR}/interface/pybind11")
+  pybind11_add_module(garfoil ${py_sources})
+  target_include_directories(garfoil PUBLIC ${INCLUDE_DIRS})
+  target_link_libraries(garfoil PRIVATE g2d_common)
+  set_target_properties(garfoil PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY ${G2D_BINARY_DIR}/lib
     LIBRARY_OUTPUT_DIRECTORY ${G2D_BINARY_DIR}/lib
     PREFIX "" # no lib prefix
     )
 endif()
 
-file(GLOB py_sources "${G2D_SOURCE_DIR}/python/*.py")
-foreach(pypath ${py_sources})
-  get_filename_component(pyname ${pypath} NAME)
-  configure_file(${pypath} ${G2D_BINARY_DIR}/lib/${pyname})
-endforeach(pypath)
+# file(GLOB py_sources "${G2D_SOURCE_DIR}/python/*.py")
+# foreach(pypath ${py_sources})
+#   get_filename_component(pyname ${pypath} NAME)
+#   configure_file(${pypath} ${G2D_BINARY_DIR}/lib/${pyname})
+# endforeach(pypath)
 
 
 
