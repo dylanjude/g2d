@@ -39,6 +39,7 @@
 #include "gpu.h"
 #include "helper_math.h"
 #include "timer.h"
+#include "g2d_types.h"
 
 class G2D {
 
