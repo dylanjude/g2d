@@ -3,7 +3,7 @@
 #define DBGJ 87
 #define DBGK 30
 
-// #define DADI_REDUCED_ORDER
+#define DADI_REDUCED_ORDER
 #define EPSLAM 0.08
 #define NFDADI 1
 
