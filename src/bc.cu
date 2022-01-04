@@ -219,12 +219,12 @@ void G2D::apply_bc(int istep, double* qtest){
     bc_visc_wall<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,qtest);
   }
 
-  // double ratio = 1.0;
-  // if(istep < 30){
-  //   ratio = ( istep*1.0 )/( 30.0 );                                                                                            
-  //   ratio = (10.0 - 15.0*ratio + 6.0*ratio*ratio)*ratio*ratio*ratio; 
-  //   bc_ramp<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,qtest,machs[GPU],aoas[GPU],ratio);
-  // }
+  double ratio = 1.0;
+  if(istep < 30){
+    ratio = ( istep*1.0 )/( 30.0 );                                                                                            
+    ratio = (10.0 - 15.0*ratio + 6.0*ratio*ratio)*ratio*ratio*ratio; 
+    bc_ramp<KMIN_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,qtest,machs[GPU],aoas[GPU],ratio);
+  }
 
   bc_far<KMAX_FACE><<<blkk,thr>>>(jtot,ktot,nvar,nghost,qtest,Sk);
 
