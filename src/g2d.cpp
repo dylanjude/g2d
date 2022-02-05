@@ -10,8 +10,19 @@
 using namespace std;
 
 G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,
-	 double* machs_in,double* reys_in,double* aoas_in,double* xy,int eqns, string foilname){
+	 double* machs_in,double* reys_in,double* aoas_in,double* xy,int eqns, string foilname, int gidx){
 
+  //
+  int ngpu, device;
+  cudaDeviceProp prop;          
+  HANDLE_ERROR(cudaGetDeviceCount(&ngpu));
+  device = gidx%ngpu;
+  HANDLE_ERROR(cudaSetDevice(device));
+  HANDLE_ERROR(cudaGetDeviceProperties(&prop, device));         
+  //
+
+  printf("#\n");
+  printf("# Using GPU %2d of %2d: %s [%X]\n", device, ngpu, prop.name, ((unsigned long long*)prop.uuid.bytes)[0]); 
   printf("#\n");
   printf("# %4d Machs :", nM);
   for(int i=0; i<nM; i++) printf(" %12.4e",machs_in[i]);

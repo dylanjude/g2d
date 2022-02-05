@@ -121,7 +121,7 @@ class G2D {
 
  public:
   G2D(int nM,int nR,int nAoA,int jtot,int ktot, int order, double* machs,double* reys,double* aoas,
-      double* xy,int eqns,std::string aname);
+      double* xy,int eqns,std::string aname,int gidx=0);
   ~G2D();
   void init();
   void go();
