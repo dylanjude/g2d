@@ -110,8 +110,12 @@ void G2D::go(){
   this->all_timeacc = true;
 
   cfl = 100.0;
-  for(int i=0; i<100; i++){
+  for(int i=0; i<60; i++){
     this->take_steps(100,4,cfl);
+  }
+
+  for(int i=0; i<40; i++){
+    this->take_steps(100,5,cfl);
   }
 
 }
