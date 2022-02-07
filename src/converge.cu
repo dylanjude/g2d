@@ -43,16 +43,16 @@ void G2D::check_convergence(){
     // First criteria: residual converges more than 6 orders
     if(drop > 6){
       done[l] = true;
-      printf("# DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 5 orders\n", 
-    	     machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+      printf("# [%16s] DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 5 orders\n", 
+    	     foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
       continue;
     }
 
     // Second criteria: forces have not changed more than 0.1%
     if(fvary < 0.1 and drop > 5){
       done[l] = true;
-      printf("# DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
-    	     machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+      printf("# [%16s] DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
+    	     foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
       continue;
     }
 

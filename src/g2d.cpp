@@ -42,8 +42,10 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,
   }
   printf("#\n");
 
-  this->order  = order;
-  this->nghost = (order>3)? 3 : 2;
+  this->foilname   = foilname;
+		   
+  this->order      = order;
+  this->nghost     = (order>3)? 3 : 2;
 
   this->nM         = nM;
   this->nRey       = nRey;

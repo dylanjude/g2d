@@ -215,9 +215,7 @@ void G2D::write_cpcf(){
   blk.x     = (jtot-1-nghost*2)/thr.x+1; // only j-points, no ghosts
 
   int c=0;
-  double* f1 = &wrk[c]; c+= 3*(jtot-nghost*2)*nl;
-
-  double* fsum  = new double[3*nl];
+  double* f1 = &wrk[c]; c+= 2*(jtot-nghost*2)*nl;
 
   FILE* fid;
 
@@ -225,12 +223,15 @@ void G2D::write_cpcf(){
 
   wall_forces<CPCF><<<blk,thr>>>(jtot,ktot,nvar,nghost,q[GPU],mulam,f1,Sj,Sk,x[GPU],vol,visc,reys[GPU]);
 
-  double* fcpu = new double[3*(jtot-nghost*2)*nl];
-  HANDLE_ERROR(cudaMemcpy(fcpu,f1,3*(jtot-nghost*2)*nl*sizeof(double),cudaMemcpyDeviceToHost));
+  double* fcpu0 = new double[2*(jtot-nghost*2)*nl];
+  double* fcpu  = fcpu0;
+  HANDLE_ERROR(cudaMemcpy(fcpu,f1,2*(jtot-nghost*2)*nl*sizeof(double),cudaMemcpyDeviceToHost));
 
   for(int l=0; l<nl; l++){
 
     fid = fopen(cpcf_fname[l].c_str(),"w"); // re-write the file each time
+
+    fcpu = &fcpu0[l*2*(jtot-nghost*2)];
 
     for(int j=0; j<jtot-nghost*2; j++){
 
@@ -246,6 +247,6 @@ void G2D::write_cpcf(){
 
   }
 
-  delete[] fcpu;
+  delete[] fcpu0;
 
 }

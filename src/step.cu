@@ -186,7 +186,7 @@ void G2D::take_steps(int nstep, int nsub, double cfl0){
       // If any NaNs occurred, revert to a safe Q vector
       this->checkpoint();
 
-      printf("Iteration %6d : running %4d conditions (%4d complete)\n", istep, nl, nl0-nl);
+      printf("[%16s] %6d : running %4d conditions (%4d complete)\n", foilname.c_str(), istep, nl, nl0-nl);
 
       // Monitor forces
       this->check_forces();

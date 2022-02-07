@@ -69,6 +69,7 @@ class G2D {
 
   FILE** resfile;
 
+  std::string foilname;
   std::string* res_fname;
   std::string* forces_fname;
   std::string* cpcf_fname;
