@@ -35,7 +35,7 @@ void G2D::gmres(double* rhs, int isub){
   int nvec = gmres_nkrylov;
 
   // first sub-iteration of timeaccurate runs only use half the krylov vectors
-  // if(this->timeac and isub==0) nvec = nvec/2;
+  if(this->all_timeacc and isub==0) nvec=nvec/2;
 
   double *norm, *residual, *tmp;
   norm     = new double[nl];
