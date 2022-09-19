@@ -28,8 +28,8 @@ __global__ void set_dt(int jtot,int ktot,int nvar,int nghost, double* q, double*
   double xsc  = sqrt(c2*xs2);
   double ysc  = sqrt(c2*ys2);
 
-  // double eigmax = abs(uu) + xsc + abs(vv) + ysc;
-  double eigmax = abs(uu) + xsc + abs(vv) + ysc + sqrt(c2*vol[gidx]*vol[gidx]); // <-- last term to match 3d Garfield
+  double eigmax = abs(uu) + xsc + abs(vv) + ysc;
+  // double eigmax = abs(uu) + xsc + abs(vv) + ysc + sqrt(c2*vol[gidx]*vol[gidx]); // <-- last term to match 3d Garfield
 
   // int ib = (j+nghost < jtot and k+nghost < ktot);
   int ib = 1;//(j+nghost < jtot and k+nghost < ktot);
@@ -44,6 +44,7 @@ __global__ void set_dt(int jtot,int ktot,int nvar,int nghost, double* q, double*
   if(flags[blockIdx.z] & F_TIMEACC){
     double M = machs[blockIdx.z];
     double dt_global = DT_GLOBAL(M)*safe_fac;
+    // dt_local *= 10;
     dt[0] = dt_global / (1.0 + dt_global/dt_local);
   } else {
     dt[0] = dt_local;
@@ -97,25 +98,25 @@ void G2D::go(){
   double cfl;
 
   cfl = 100.0;
-  for(int i=0; i<5; i++){
-    this->take_steps(100,3,cfl);
+  for(int i=0; i<3; i++){
+    this->take_steps(200,3,cfl);
   }
 
   cfl = 50.0;
-  for(int i=0; i<5; i++){
-    this->take_steps(100,3,cfl);
+  for(int i=0; i<2; i++){
+    this->take_steps(200,4,cfl);
   }
 
   // If cases haven't converged yet, force them all to be time-accurate.
   this->all_timeacc = true;
 
   cfl = 100.0;
-  for(int i=0; i<60; i++){
-    this->take_steps(100,4,cfl);
+  for(int i=0; i<30; i++){
+    this->take_steps(200,4,cfl);
   }
 
-  for(int i=0; i<40; i++){
-    this->take_steps(100,5,cfl);
+  for(int i=0; i<15; i++){
+    this->take_steps(200,5,cfl);
   }
 
 }
@@ -124,8 +125,6 @@ void G2D::take_steps(int nstep, int nsub, double cfl0){
 
   // int checkmod=int(10/nsub);
   int checkmod=10;
-
-  int qcount = nl*jtot*ktot*nvar;
 
   dim3 thr(16,16,1);
   dim3 vthr(16,4,nvar);
@@ -212,6 +211,5 @@ void G2D::take_steps(int nstep, int nsub, double cfl0){
 
   // monitor convergence
   this->check_convergence();
-
 
 }

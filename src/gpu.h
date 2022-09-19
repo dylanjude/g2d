@@ -2,6 +2,7 @@
 
 #include "cuda.h"
 #include "cuda_runtime.h"
+#include <iostream>
 
 static void HandleError(cudaError_t err, const char *file, int line){
   if(err != cudaSuccess){
@@ -10,6 +11,13 @@ static void HandleError(cudaError_t err, const char *file, int line){
   }
 }
 #define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__))
+
+static void checkLast(const char* file, const int line)
+{
+    cudaError_t err{cudaGetLastError()};
+    HandleError(err, file, line);
+}
+#define CHECK_LAST_CUDA_ERROR() checkLast(__FILE__, __LINE__)
 
 
 // #include "cublas_v2.h"

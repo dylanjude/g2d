@@ -4,11 +4,14 @@
 
 #define BIG   1e100
 
-__global__ void shift_q(double* q_old, double* q_new, int tot, int* lmap){
+__global__ void shift_q(double* q_old, double* q_new, double* safe_old, double* safe_new, int tot, int* lmap){
   int i    = blockDim.x * blockIdx.x + threadIdx.x;
   int lnew = blockIdx.z;
   int lold = lmap[lnew];
-  if(i<tot) q_new[i+lnew*tot] = q_old[i+lold*tot];
+  if(i<tot){
+    q_new[   i+lnew*tot] = q_old[   i+lold*tot];
+    safe_new[i+lnew*tot] = safe_old[i+lold*tot];
+  }
 }
 
 
@@ -42,17 +45,29 @@ void G2D::check_convergence(){
 
     // First criteria: residual converges more than 6 orders
     if(drop > 6){
-      done[l] = true;
-      printf("# [%16s] DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 5 orders\n", 
-    	     foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
-      continue;
+      if(flags[CPU][l] & F_TIMEACC){
+	done[l] = true;
+	printf("# [%16s] DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 5 orders\n", 
+	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+      } else {
+	flags[CPU][l] = flags[CPU][l] | F_TIMEACC;
+	printf("# [%16s] Final Stretch : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 5 orders\n", 
+	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+      }
+      continue;      
     }
 
     // Second criteria: forces have not changed more than 0.1%
     if(fvary < 0.1 and drop > 5){
-      done[l] = true;
-      printf("# [%16s] DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
-    	     foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+      if(flags[CPU][l] & F_TIMEACC){      
+	done[l] = true;
+	printf("# [%16s] DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
+	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+      }	else {
+	flags[CPU][l] = flags[CPU][l] | F_TIMEACC;	
+	printf("# [%16s] Final Stretch : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
+	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+      }
       continue;
     }
 
@@ -77,6 +92,7 @@ void G2D::check_convergence(){
     }
 
     // we need to shift:
+    flags[CPU][ll]   = flags[CPU][l];
     machs[CPU][ll]   = machs[CPU][l];
     aoas[CPU][ll]    = aoas[CPU][l];
     reys[CPU][ll]    = reys[CPU][l];
@@ -95,7 +111,11 @@ void G2D::check_convergence(){
 
   this->nl = ll;
 
-  int* lmap_gpu = (int*)wrk;
+  int*    lmap_gpu = (int*)wrk;
+  double* qtmp     = &wrk[nl];
+  int qcount       = nl*jtot*ktot*nvar;
+
+  HANDLE_ERROR( cudaMemcpy(qtmp, qsafe, qcount*sizeof(double), cudaMemcpyDeviceToDevice) );
 
   // copy the map to the GPU
   HANDLE_ERROR( cudaMemcpy(lmap_gpu, lmap, nl*sizeof(int), cudaMemcpyHostToDevice) );
@@ -104,6 +124,7 @@ void G2D::check_convergence(){
   HANDLE_ERROR( cudaMemcpy(this->machs[GPU], this->machs[CPU], nl*sizeof(double), cudaMemcpyHostToDevice) );
   HANDLE_ERROR( cudaMemcpy(this->aoas[GPU],  this->aoas[CPU],  nl*sizeof(double), cudaMemcpyHostToDevice) );
   HANDLE_ERROR( cudaMemcpy(this->reys[GPU],  this->reys[CPU],  nl*sizeof(double), cudaMemcpyHostToDevice) );
+  HANDLE_ERROR( cudaMemcpy(this->flags[GPU], this->flags[CPU], nl,                cudaMemcpyHostToDevice) );
   
   double* newq = this->s;
   
@@ -111,8 +132,8 @@ void G2D::check_convergence(){
   dim3 blk(1,1,nl);
   blk.x = (jtot*ktot*nvar-1)/thr.x+1;
   
-  // Shift q into qtmp (which is s residual storage). 
-  shift_q<<<blk,thr>>>(q[GPU],newq,jtot*ktot*nvar,lmap_gpu);
+  // Shift q into "newq" (which is s residual storage). 
+  shift_q<<<blk,thr>>>(q[GPU],newq,qtmp,qsafe,jtot*ktot*nvar,lmap_gpu);
 
   // Then swap s and q pointers.
   this->s      = this->q[GPU];
