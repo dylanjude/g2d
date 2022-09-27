@@ -1,2 +1,6 @@
-build/*
+**/build/*
 TAGS
+**/*.pyc
+**/*.tar.gz
+**/results/*
+**/.DS_Store
