@@ -110,7 +110,7 @@ def plot_file(filename):
 from ..build.lib import libgen2d
 from . import airfoil_utils
 def generate_mesh(uiuc_coords_file, gridfile, doplot=False):
-  jtot,ktot  = 201,101
+  jtot,ktot  = 301,122
   gen_inputs = { "ktot"       : ktot,   # points in normal dir               
                  "ds0"        : 6.6e-6, # wall spacing              
                  "far"        : 30.0,   # distance to far field              
