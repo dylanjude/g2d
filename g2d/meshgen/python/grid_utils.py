@@ -1,4 +1,4 @@
-import numpy as np
+import os, numpy as np
 from . import naca
 
 plt = None
@@ -140,5 +140,6 @@ def generate_mesh(uiuc_coords_file, gridfile, doplot=False):
       # continue
   else:
       gen.write_to_file(gridfile)
-
+  print('current working directory is ',os.getcwd())
+  print('wrote a grid file called ',gridfile)
   return None
