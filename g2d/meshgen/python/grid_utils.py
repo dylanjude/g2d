@@ -109,7 +109,7 @@ def plot_file(filename):
 
 from ..build.lib import libgen2d
 from . import airfoil_utils
-def generate_mesh(uiuc_coords_file, gridfile, doplot=False):
+def generate_mesh(uiuc_coords_file, gridfile, rounded=False, doplot=False):
   jtot,ktot  = 301,122
   gen_inputs = { "ktot"       : ktot,   # points in normal dir               
                  "ds0"        : 6.6e-6, # wall spacing              
@@ -120,7 +120,6 @@ def generate_mesh(uiuc_coords_file, gridfile, doplot=False):
                  "initlinear" : 7.0     # High (~100) for simple geoms, low (~2) for concave geoms      
                 } 
   nlinear  = 20
-  rounded  = True
   np       = 600
 
   if doplot:
