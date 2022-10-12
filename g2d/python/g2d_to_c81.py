@@ -12,6 +12,10 @@ def write_c81_table(data,key,f):
             f.write('\n       ')
         f.write('{:7.3f}'.format(Mach))
 
+    if key.lower().startswith(('cl','lift','cm','moment')):
+        fstr = '{:7.4f}'
+    else:
+        fstr = '{:7.5f}'        # drag is never negative
 # loop over AoA, write
     for ialpha,alpha in enumerate(data['alpha']):
         f.write('\n{:<7.2f}'.format(alpha))
@@ -21,7 +25,6 @@ def write_c81_table(data,key,f):
                 f.write('\n       ')
             val = data[key][ialpha,iMach,0]
             # if val < 0:
-            fstr = '{:7.4f}'
             # else:
             #     fstr = '{:7.5f}'
             f.write(fstr.format(val))
