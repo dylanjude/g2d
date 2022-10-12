@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "AS_driver.py", line 6, in <module>
+    aoas = np.linspace(-10.0,20.0,31,dtype='d') #[-2.0,-1.0]
+AttributeError: module 'numpy' has no attribute 'linspace'
