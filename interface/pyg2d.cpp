@@ -32,15 +32,20 @@ void run(py::array_t<double> machs, py::array_t<double> reys, py::array_t<double
              (double*)aoas.request().ptr,
              (double*)xy.request().ptr,
              ieqns,foilname,gidx);
-  
+
   solver.init();
   solver.go();
   solver.write_sols();
 
 }
 
+void vary_Re_with_Mach(bool val){
+  G2D::vary_Re_with_Mach=val;
+}
+
 PYBIND11_MODULE(garfoil, m) {
   m.doc() = "Orchard library wrapped with pybind11"; // module docstring
   m.def("run", &run);
+  m.def("vary_Re_with_Mach", &vary_Re_with_Mach);
 }
 

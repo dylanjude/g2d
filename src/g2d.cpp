@@ -9,6 +9,8 @@
 
 using namespace std;
 
+bool G2D::vary_Re_with_Mach=false;
+
 G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,
 	 double* machs_in,double* reys_in,double* aoas_in,double* xy,int eqns, string foilname, int gidx){
 
@@ -100,7 +102,11 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,
 	aoa360 = (aoas_in[ia] < 0)? aoas_in[ia]+360 : aoas_in[ia];
 	aoas[CPU][l]  = aoa360;
 	machs[CPU][l] = machs_in[im]; 
-	reys[CPU][l]  = reys_in[ir]/machs_in[im];   // reynolds number based on a_inf
+	if(vary_Re_with_Mach){
+	  reys[CPU][l]  = reys_in[ir];
+	} else {
+	  reys[CPU][l]  = reys_in[ir]/machs_in[im];   // reynolds number based on a_inf
+	}
 	sprintf(charbuff, "_r%07.0f_a%05.1f_m%04.2f", reys_in[ir], aoa360, machs_in[im]);
 	res_fname[l]    = foilname + "/" +foilname + charbuff + ".res";
 	forces_fname[l] = foilname + "/" +foilname + charbuff + ".forces";

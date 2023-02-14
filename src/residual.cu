@@ -360,7 +360,8 @@ void G2D::checkpoint(){
 
   for(int l=0; l<nl; l++){
     if(flags[CPU][l] & F_RECOVER){
-      printf("# *** Error with M=%9.3f, Alpha=%9.3f, Re=%16.8e ***\n",machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+      printf("# *** [%16s] Error with M=%9.3f, Alpha=%9.3f, Re=%16.8e ***\n",
+	     foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
       printf("# *** reverting to safe solution and switching to time-accurate.\n");
     	     
     } 

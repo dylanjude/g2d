@@ -25,12 +25,16 @@ void G2D::check_convergence(){
   double fmin, fmax, fvary;
 
   double eps=1e-16;
+  double r0;
 
   for(l=0; l<nl; l++){ 
     // assume we're not done
     done[l] = false;
 
-    drop = log10(res0[l]/res[l]);
+    if(res0) r0 = res0[l];
+    else     r0 = res[l];
+
+    drop = log10(r0/res[l]);
 
     fmin =  BIG;
     fmax = -BIG;
@@ -43,16 +47,18 @@ void G2D::check_convergence(){
     // printf("# CASE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, drop=%7.3f, f_vary=%8.3f\n",  
     // 	   machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l], drop, fvary);
 
+    double re = (vary_Re_with_Mach)? reys[CPU][l] : reys[CPU][l]*machs[CPU][l];
+
     // First criteria: residual converges more than 6 orders
     if(drop > 6){
       if(flags[CPU][l] & F_TIMEACC){
 	done[l] = true;
 	printf("# [%16s] DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 5 orders\n", 
-	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], re);
       } else {
 	flags[CPU][l] = flags[CPU][l] | F_TIMEACC;
 	printf("# [%16s] Final Stretch : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 5 orders\n", 
-	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], re);
       }
       continue;      
     }
@@ -62,11 +68,11 @@ void G2D::check_convergence(){
       if(flags[CPU][l] & F_TIMEACC){      
 	done[l] = true;
 	printf("# [%16s] DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
-	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], re);
       }	else {
 	flags[CPU][l] = flags[CPU][l] | F_TIMEACC;	
 	printf("# [%16s] Final Stretch : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
-	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], reys[CPU][l]*machs[CPU][l]);
+	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], re);
       }
       continue;
     }
@@ -103,7 +109,9 @@ void G2D::check_convergence(){
     sol_fname[ll]    = sol_fname[l];
 
     res[ll]          = res[l];
-    res0[ll]         = res0[l];
+    if(res0){
+      res0[ll]         = res0[l];
+    }
 
     ll++;
 

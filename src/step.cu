@@ -115,7 +115,7 @@ void G2D::go(){
     this->take_steps(200,4,cfl);
   }
 
-  for(int i=0; i<15; i++){
+  for(int i=0; i<25; i++){
     this->take_steps(200,5,cfl);
   }
 
