@@ -1,0 +1,15 @@
+#!/bin/bash
+#BSUB -m inf[001-022]
+#BSUB -gpu "num=1:mode=shared:j_exclusive=yes"
+#BSUB -J G2D_run 
+#BSUB -n 1
+#BSUB -R "span[ptile=6]"
+#BSUB -q standard
+#BSUB -P ACOMA14822BJA
+#BSUB -o ./output.out
+#BSUB -e ./errout.err
+#BSUB -W 24:00
+#BSUB -x
+    
+# note: job executes from queued location
+python3 AS_driver.py #opt_design_0.grid
