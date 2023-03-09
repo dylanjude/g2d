@@ -16,11 +16,10 @@ set(INCLUDE_DIRS ${GEN2D_SOURCE_DIR}/include)
 #
 # Library: gen2d
 #
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/interface/pybind11")
 file(GLOB sources "${GEN2D_SOURCE_DIR}/src/*.cpp" "${GEN2D_SOURCE_DIR}/src/*.c" "${GEN2D_SOURCE_DIR}/interface/*.cpp")
-pybind11_add_module(libgen2d ${sources})
-set_target_properties(libgen2d PROPERTIES
-  ARCHIVE_OUTPUT_DIRECTORY ${GEN2D_BINARY_DIR}/lib
-  LIBRARY_OUTPUT_DIRECTORY ${GEN2D_BINARY_DIR}/lib
+pybind11_add_module(ogen ${sources})
+set_target_properties(ogen PROPERTIES
+  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
   )
-target_include_directories(libgen2d PUBLIC ${INCLUDE_DIRS})
+target_include_directories(ogen PUBLIC ${INCLUDE_DIRS})

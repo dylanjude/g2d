@@ -1,7 +1,7 @@
 #
 # G2D CMakeLists.txt file
 #
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.17)
 #
 # Reset some options BEFORE declaring project
 #
@@ -89,11 +89,11 @@ set_target_properties(g2d_common PROPERTIES
 #
 file(GLOB exe_srcs "${G2D_SOURCE_DIR}/driver/*.cpp")
 
-add_executable(g2d ${exe_srcs})
-target_include_directories(g2d PUBLIC ${INCLUDE_DIRS})
-target_link_libraries(g2d g2d_common)
-set_target_properties(g2d PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY ${G2D_BINARY_DIR}/bin
+add_executable(g2d.exe ${exe_srcs})
+target_include_directories(g2d.exe PUBLIC ${INCLUDE_DIRS})
+target_link_libraries(g2d.exe g2d_common)
+set_target_properties(g2d.exe PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
   PREFIX "" # no lib prefix
   )
 
@@ -102,13 +102,12 @@ set_target_properties(g2d PROPERTIES
 #
 if(G2D_PYTHON)
   file(GLOB py_sources "${G2D_SOURCE_DIR}/interface/*.cpp")
-  add_subdirectory("${G2D_SOURCE_DIR}/interface/pybind11")
   pybind11_add_module(garfoil ${py_sources})
   target_include_directories(garfoil PUBLIC ${INCLUDE_DIRS})
   target_link_libraries(garfoil PRIVATE g2d_common)
   set_target_properties(garfoil PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY ${G2D_BINARY_DIR}/lib
-    LIBRARY_OUTPUT_DIRECTORY ${G2D_BINARY_DIR}/lib
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
     PREFIX "" # no lib prefix
     )
 endif()

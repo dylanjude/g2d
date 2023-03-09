@@ -80,7 +80,7 @@ void pywrite_grid(std::string fname, py::array_t<double> xyz){
   delete[] dims;
 }
 
-PYBIND11_MODULE(libgen2d, m) {
+PYBIND11_MODULE(ogen, m) {
   m.doc() = "Lib wrapped with pybind11"; // module docstring
   py::class_<PyMeshGen>(m, "MeshGen")
     .def(py::init<py::array_t<double>,py::dict>())
