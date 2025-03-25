@@ -93,7 +93,7 @@ add_executable(g2d.exe ${exe_srcs})
 target_include_directories(g2d.exe PUBLIC ${INCLUDE_DIRS})
 target_link_libraries(g2d.exe g2d_common)
 set_target_properties(g2d.exe PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
   PREFIX "" # no lib prefix
   )
 
@@ -106,8 +106,8 @@ if(G2D_PYTHON)
   target_include_directories(garfoil PUBLIC ${INCLUDE_DIRS})
   target_link_libraries(garfoil PRIVATE g2d_common)
   set_target_properties(garfoil PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     PREFIX "" # no lib prefix
     )
 endif()
