@@ -107,38 +107,38 @@ def plot_file(filename):
     plot_xy(reordered)
 
 
-from ..build.lib import libgen2d
-from . import airfoil_utils
-def generate_mesh(uiuc_coords_file, gridfile, rounded=False, doplot=False):
-  jtot,ktot  = 301,122
-  gen_inputs = { "ktot"       : ktot,   # points in normal dir               
-                 "ds0"        : 6.6e-6, # wall spacing              
-                 "far"        : 30.0,   # distance to far field              
-                 "knormal"    : 10,     # points to walk straight out from wall       
-                 "res_freq"   : 100,    # how often to check poisson solver residuals          
-                 "omega"      : 1.4,    # SSOR relaxation constant (decrease if diverging)     
-                 "initlinear" : 7.0     # High (~100) for simple geoms, low (~2) for concave geoms      
-                } 
-  nlinear  = 20
-  np       = 600
+# from ..build.lib import libgen2d
+# from . import airfoil_utils
+# def generate_mesh(uiuc_coords_file, gridfile, rounded=False, doplot=False):
+#   jtot,ktot  = 301,122
+#   gen_inputs = { "ktot"       : ktot,   # points in normal dir               
+#                  "ds0"        : 6.6e-6, # wall spacing              
+#                  "far"        : 30.0,   # distance to far field              
+#                  "knormal"    : 10,     # points to walk straight out from wall       
+#                  "res_freq"   : 100,    # how often to check poisson solver residuals          
+#                  "omega"      : 1.4,    # SSOR relaxation constant (decrease if diverging)     
+#                  "initlinear" : 7.0     # High (~100) for simple geoms, low (~2) for concave geoms      
+#                 } 
+#   nlinear  = 20
+#   np       = 600
 
-  if doplot:
-    gen_inputs['res_freq'] = 10
+#   if doplot:
+#     gen_inputs['res_freq'] = 10
 
-  print("Loading "+uiuc_coords_file)
+#   print("Loading "+uiuc_coords_file)
 
-  foil0 = airfoil_utils.load_uiuc(uiuc_coords_file)
-  foil0 = airfoil_utils.close_te(foil0)
-  foil  = airfoil_utils.interpolate(foil0,jtot,0.0015,nlinear,rounded)
-  gen   = libgen2d.MeshGen(foil, gen_inputs)
-  gen.poisson(np)
-  if(doplot):
-      xy = gen.get_mesh()
-      plot_xy(xy)
-      gen.write_to_file(gridfile)
-      # continue
-  else:
-      gen.write_to_file(gridfile)
-  print('current working directory is ',os.getcwd())
-  print('wrote a grid file called ',gridfile)
-  return None
+#   foil0 = airfoil_utils.load_uiuc(uiuc_coords_file)
+#   foil0 = airfoil_utils.close_te(foil0)
+#   foil  = airfoil_utils.interpolate(foil0,jtot,0.0015,nlinear,rounded)
+#   gen   = libgen2d.MeshGen(foil, gen_inputs)
+#   gen.poisson(np)
+#   if(doplot):
+#       xy = gen.get_mesh()
+#       plot_xy(xy)
+#       gen.write_to_file(gridfile)
+#       # continue
+#   else:
+#       gen.write_to_file(gridfile)
+#   print('current working directory is ',os.getcwd())
+#   print('wrote a grid file called ',gridfile)
+#   return None

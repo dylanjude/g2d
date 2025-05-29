@@ -3,17 +3,7 @@ import yaml, os, sys
 from . import ogen, grid_utils, airfoil_utils
 import matplotlib.pyplot as plt
 
-def load_airfoil(fname):
-    a0 = np.loadtxt(fname, skiprows=1)
-    minx = np.min(a0[:,0])
-    maxx = np.max(a0[:,0])
-    a0[:,0]  = (a0[:,0]+minx)
-    a0[:,:] /= (maxx-minx)
-    if(a[3,2]>a[-3,2]):
-        a0 = np.ascontiguousarray(a0[::-1,:])
-    return a0
-
-def nicemesh(jtot,ktot,datfile,outfile,rounded=False):
+def nicemesh(jtot,ktot,foil0,outfile,rounded=False):
 
     gen_i1 = { "ktot"       : int(ktot*0.75),   # points in normal dir
                "ds0"        : 6.6e-6, # wall spacing
@@ -34,8 +24,9 @@ def nicemesh(jtot,ktot,datfile,outfile,rounded=False):
     nlinear=20
     NP=600
 
-    try:
-        foil0 = load_airfoil(datfile)
+    # try:
+    if(1):
+        # foil0 = load_airfoil(datfile)
         foil0 = airfoil_utils.close_te(foil0)
         foil  = airfoil_utils.interpolate(foil0,jtot,0.0015,nlinear,rounded)
 
@@ -61,8 +52,8 @@ def nicemesh(jtot,ktot,datfile,outfile,rounded=False):
         full  = np.vstack([near,far[1:,:,:]])
 
         grid_utils.write_grid(outfile, full)
-    except:
-        if(not rounded):
-            return nicemesh(jtot,ktot,datfile,outfile,True)
-        return 1
+    # except:
+    #     if(not rounded):
+    #         return nicemesh(jtot,ktot,datfile,outfile,True)
+    #     return 1
     return 0

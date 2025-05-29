@@ -19,14 +19,13 @@ set(INCLUDE_DIRS ${GEN2D_SOURCE_DIR}/include)
 file(GLOB sources "${GEN2D_SOURCE_DIR}/src/*.cpp" "${GEN2D_SOURCE_DIR}/src/*.c" "${GEN2D_SOURCE_DIR}/interface/*.cpp")
 pybind11_add_module(ogen ${sources})
 set_target_properties(ogen PROPERTIES
-  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/meshgen
+  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/meshgen
   )
 target_include_directories(ogen PUBLIC ${INCLUDE_DIRS})
-
 
 file(GLOB py_sources "${GEN2D_SOURCE_DIR}/python/*.py")      
 foreach(pypath ${py_sources})    
   get_filename_component(pyname ${pypath} NAME)      
-  configure_file(${pypath} ${CMAKE_BINARY_DIR}/lib/${pyname})
+  configure_file(${pypath} ${CMAKE_BINARY_DIR}/lib/meshgen/${pyname})
 endforeach(pypath) 
