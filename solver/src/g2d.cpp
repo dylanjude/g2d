@@ -42,6 +42,9 @@ G2D::G2D(int nM,int nRey,int nAoa,int jtot,int ktot,int order,
   } else {
     printf("#    Eqn Set :   Turbulent\n");
   }
+  if(vary_Re_with_Mach){
+    printf("#    Varying Re with Mach number\n");
+  }
   printf("#\n");
 
   this->foilname   = foilname;

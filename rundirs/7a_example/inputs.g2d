@@ -1,0 +1,6 @@
+machs   : 0.3 0.5 0.7
+aoas    : -16 -14 -12 -10 -8 -6 -4 -2 0 2 4 6 8 10 12 14 16
+reys    : 2500000
+airfoil : 7a_foil.x
+varyRe  : 1
+eqns    : sa

@@ -23,7 +23,8 @@ int main(int argc, char** argv){
   inputs["reys"]    = "1000000";
   inputs["airfoil"] = "naca0012.xyz";
   inputs["order"]   = "3";
-  inputs["eqns"]    = "laminar";
+  inputs["eqns"]    = "sa";
+  inputs["varyRe"]  = "1";
 
   // parse everything into a map of <string : string>
   printf("# Parsing inputs-------------------------------------\n");
@@ -110,6 +111,12 @@ int main(int argc, char** argv){
     eqns = LAMINAR;
   } else {
     eqns = TURBULENT;
+  }
+
+  if(inputs["varyRe"] == "1"){
+    G2D::vary_Re_with_Mach=true;
+  } else {
+    G2D::vary_Re_with_Mach=false;    
   }
 
   G2D solver(nM,nRey,nAoA,jtot,ktot,order,machs,reys,aoas,xy,eqns,foilname);

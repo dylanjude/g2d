@@ -47,7 +47,7 @@ endif(G2D_PYTHON)
 # CUDA
 set(CMAKE_CUDA_FLAGS "-lineinfo -rdynamic --Wno-deprecated-gpu-targets -m64")
 if(${CMAKE_VERSION} VERSION_GREATER "3.18")
-  set(CMAKE_CUDA_ARCHITECTURES 80 70)
+  set(CMAKE_CUDA_ARCHITECTURES 90 80)
 else()
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_60,code=sm_60")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_70,code=sm_70")
