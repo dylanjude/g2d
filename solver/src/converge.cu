@@ -53,29 +53,29 @@ void G2D::check_convergence(){
     if(drop > 6){
       if(flags[CPU][l] & F_TIMEACC){
 	done[l] = true;
-	printf("# [%16s] DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 5 orders\n", 
+	printf("# [%16s] DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 6 orders\n", 
 	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], re);
       } else {
 	flags[CPU][l] = flags[CPU][l] | F_TIMEACC;
-	printf("# [%16s] Final Stretch : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 5 orders\n", 
+	printf("# [%16s] Final Stretch : M=%9.3f, Alpha=%9.3f, Re=%16.8e, dropped 6 orders\n", 
 	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], re);
       }
       continue;      
     }
 
-    // Second criteria: forces have not changed more than 0.1%
-    if(fvary < 0.1 and drop > 5){
-      if(flags[CPU][l] & F_TIMEACC){      
-	done[l] = true;
-	printf("# [%16s] DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
-	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], re);
-      }	else {
-	flags[CPU][l] = flags[CPU][l] | F_TIMEACC;	
-	printf("# [%16s] Final Stretch : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
-	       foilname.c_str(),machs[CPU][l], aoas[CPU][l], re);
-      }
-      continue;
-    }
+    // // Second criteria: forces have not changed more than 0.1%
+    // if(fvary < 0.1 and drop > 5){
+    //   if(flags[CPU][l] & F_TIMEACC){      
+    //     done[l] = true;
+    //     printf("# [%16s] DONE : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
+    //            foilname.c_str(),machs[CPU][l], aoas[CPU][l], re);
+    //   }	else {
+    //     flags[CPU][l] = flags[CPU][l] | F_TIMEACC;	
+    //     printf("# [%16s] Final Stretch : M=%9.3f, Alpha=%9.3f, Re=%16.8e, <0.1%% change in forces\n", 
+    //            foilname.c_str(),machs[CPU][l], aoas[CPU][l], re);
+    //   }
+    //   continue;
+    // }
 
   }
 
