@@ -25,7 +25,7 @@ class MeshGen {
   void init(double d1, double d2, double howlinear);
   int write_to_file(std::string s);
   void get_mesh(double **xy, int dims[3]);
-  void poisson(int n);
+  void poisson(int n, double omega);
 };
 
 

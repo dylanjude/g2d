@@ -3,10 +3,16 @@
 #include "ss.h"
 
 
-void MeshGen::poisson(int n){
+void MeshGen::poisson(int n, double omega){
 
   double res;
-  double w = this->omega;
+
+  double w;
+  if(omega > 0){
+    w = omega;
+  } else {
+    w = this->omega;
+  }
   
   memset(rhs, 0, dim->pts*2*sizeof(double));
   memset(P  , 0, dim->pts*1*sizeof(double));

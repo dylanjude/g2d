@@ -42,8 +42,8 @@ public:
   ~PyMeshGen(){
     if(mg) delete mg;
   }
-  void poisson(int iter){
-    mg->poisson(iter);
+  void poisson(int iter, double omega){
+    mg->poisson(iter, omega);
   }
   void write_to_file(std::string fname){
     mg->write_to_file(fname);

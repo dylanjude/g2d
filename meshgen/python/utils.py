@@ -11,7 +11,7 @@ def nicemesh(jtot,ktot,foil0,outfile,rounded=False):
                "knormal"    : 10,     # points to walk straight out from wall
                "res_freq"   : 100,    # how often to check poisson solver residuals
                "omega"      : 1.1,    # SSOR relaxation constant (decrease if diverging)
-               "initlinear" : 5.0     # High (~100) for simple geoms, low (~2) for concave geoms
+               "initlinear" : 2.0     # High (~100) for simple geoms, low (~2) for concave geoms
            }
     gen_i2 = { "ktot"       : ktot-gen_i1['ktot'],   # points in normal dir
                "ds0"        : 0.05, # wall spacing
@@ -34,18 +34,22 @@ def nicemesh(jtot,ktot,foil0,outfile,rounded=False):
         # near-field region:
         ogen.set_ss_coeffs(0.2, 0.25, 0.2, 0.2) # normal@wall, space@wall, same for farfield
         gen   = ogen.MeshGen(foil, gen_i1)
-        gen.poisson(NP)
+        gen.poisson(100, 0.1)        
+        gen.poisson(NP, -1.0)
         near  = gen.get_mesh()
         # grid_utils.plot_xy(near)
+        # grid_utils.write_grid("near.x", near)                
 
         # --------------------------------
         # far-field region:
         tmpf  = near[-1,:,:]
         ogen.set_ss_coeffs(0.3, 0.3, 0.3, 0.2) # normal@wall, space@wall, same for farfield
         gen2  = ogen.MeshGen(tmpf, gen_i2)
-        gen2.poisson(100)
+        gen2.poisson(10,0.1)        
+        gen2.poisson(100,-1.0)
         far   = gen2.get_mesh()
         # grid_utils.plot_xy(far)
+        # grid_utils.write_grid("dbg.x", far)        
 
         # --------------------------------
         # combine the grids:

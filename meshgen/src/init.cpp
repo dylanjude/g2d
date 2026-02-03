@@ -16,6 +16,11 @@ void MeshGen::init(double ds, double stretch, double howlinear){
 
   int idx, j, k, jle, jp1, jm1;
 
+  
+  //
+  // First "kstart" layers are in the normal direction. Do those
+  // first:
+  //
   double x_xi, y_xi, dx, dy, gamma, tmp;
   for(k=1; k<=kstart; k++){
     for(j=0; j<jtot; j++){
@@ -35,6 +40,14 @@ void MeshGen::init(double ds, double stretch, double howlinear){
       x[idx] = x[idx - kstride] + dx;
       y[idx] = y[idx - kstride] + dy;
 
+    }
+  }
+
+  for(k=kstart+1; k<ktot; k++){
+    for(j=0; j<jtot; j++){
+      idx = j*jstride + k*kstride;
+      x[idx] = x[(kstart)*kstride + j*jstride]; // k=kstart;
+      y[idx] = y[(kstart)*kstride + j*jstride]; // k=kstart;
     }
   }
 
@@ -68,7 +81,12 @@ void MeshGen::init(double ds, double stretch, double howlinear){
     y[idx] = y[idx - kstride] + ds1*angle0;
   }
 
-  double xmax = x[(ktot-1)*kstride];
+  double xmax = sqrt(x[(ktot-1)*kstride]*x[(ktot-1)*kstride] +
+                     y[(ktot-1)*kstride]*y[(ktot-1)*kstride]);
+
+  // we want the angle from the airfoil center (not the trailing edge)
+  // to the j=0 pt in the far-field:
+  angle0 = atan(y[(ktot-1)*kstride]/x[(ktot-1)*kstride]);
 
   // printf("xmax, angle is : %f %f\n", xmax, angle0);
 
@@ -78,7 +96,7 @@ void MeshGen::init(double ds, double stretch, double howlinear){
     idx = j*jstride + k*kstride;
     x[idx] = x[k*kstride];
     y[idx] = y[k*kstride];
-  }
+  }  
 
   //
   // Fill the far-field
@@ -92,7 +110,7 @@ void MeshGen::init(double ds, double stretch, double howlinear){
 
   // flatten the outer circle just a bit
   k = ktot-1;
-  double ratio = (xmax-0.5)/y[jtot*3/4*jstride + k*kstride];
+  double ratio = (xmax-0.5)/xmax;
   for(j=0;j<jtot;j++){
     idx = j*jstride + k*kstride;
     y[idx] = y[idx] * ratio;
@@ -103,11 +121,9 @@ void MeshGen::init(double ds, double stretch, double howlinear){
   //
   // Linear interpolation everywhere else
   //
-
   for(k=kstart+1;k<ktot-1;k++){
 
     dr  = x[k*kstride]-x[(k-1)*kstride];
-
 
     // weight each:
     factor = (1.0*k-kstart)/(1.0*ktot-1-kstart);
