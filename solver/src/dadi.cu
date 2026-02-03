@@ -534,7 +534,7 @@ void G2D::dadi(double *sout){
   triblocks.y = (ktot-2*NFDADI)/trithreads.y+1; // Tri-diag solver kernel dims
   invert_xi<<<blk,thr>>>(jtot,ktot,nvar,Sj,this->q[GPU],R_DADI);
   compute_LDU<0><<<blk,thr>>>(jtot,ktot,nvar,Sj,L_DADI,D_DADI,U_DADI,vol,dt,q[GPU],mulam,muturb,reys[GPU]);
-  tridiag<0,0><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI );
+  tridiag<0,1><<<triblocks,trithreads>>>(jtot,ktot,nghost,R_DADI,L_DADI,D_DADI,U_DADI );
 
   //
   // K-Direction: ETA

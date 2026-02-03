@@ -1,6 +1,6 @@
 #include "g2d.h"
 
-#define USE_DES
+// #define USE_DES
 
 #define ONE_BY_SIGMA 1.5
 #define CB2 0.622
