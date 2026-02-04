@@ -97,12 +97,17 @@ void G2D::go(){
 
   double cfl;
 
-  cfl = 100.0;
-  for(int i=0; i<3; i++){
+  cfl = 20.0;
+  for(int i=0; i<1; i++){
     this->take_steps(200,3,cfl);
   }
 
   cfl = 50.0;
+  for(int i=0; i<2; i++){
+    this->take_steps(200,3,cfl);
+  }
+
+  cfl = 20.0;
   for(int i=0; i<2; i++){
     this->take_steps(200,4,cfl);
   }
@@ -110,7 +115,7 @@ void G2D::go(){
   // If cases haven't converged yet, force them all to be time-accurate.
   this->all_timeacc = true;
 
-  cfl = 100.0;
+  cfl = 50.0;
   for(int i=0; i<30; i++){
     this->take_steps(200,4,cfl);
   }
